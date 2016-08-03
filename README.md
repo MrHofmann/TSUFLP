@@ -1,1 +1,1 @@
-# Two-Staged Uncapacitated Facility Location Problem
+# Two-Stage Uncapacitated Facility Location Problem
