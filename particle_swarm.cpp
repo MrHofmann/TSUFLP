@@ -106,26 +106,32 @@ public:
                   vector<unsigned> &D, vector<unsigned> &f, vector<unsigned> &g,
                   vector< vector<double> > &c, vector< vector<double> > &d);
     void UpdateVelocity();
-    void UpdatePosition(const vector<unsigned> &D);
+    void UpdatePosition();
 };
 
-
-double global1 = numeric_limits<double>::max();
-double global2 = numeric_limits<double>::max();
-double global3 = numeric_limits<double>::max();
 double vmax = 10.0;
 double omega = 0.9;
 double fi_p = 2.7;
 double fi_g = 2.0;
-unsigned parts = 60;
 
+unsigned parts = 60;
+unsigned hsize = 60;
+unsigned hoods = ceil(parts/hsize);
+
+vector<Solution> globals;
+vector<double> gvalues;
+
+int jota = 0;
 //------------------------------------------------------------------------------------//
+
+
 void PS_Load(const string &path, InputData &data);
 
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned J, unsigned K);
 
 void PS_ComputeGlobal(vector<Particle> &swarm, const InputData &data);
 
+void PS_Debug(int n);
 
 //------------------------------------------------------------------------------------//
 
@@ -300,7 +306,7 @@ void Particle::UpdateVelocity()
     {
         map<key, bool> xc = GetCurrentPosition().GetX()[i];
         map<key, bool> xl = GetLocalBest().GetX()[i];
-        map<key, bool> xg = GetGlobalBest().GetX()[i];
+        map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
         map<key, double> vi = _x_velocity[i];
 
         set<key> keys;
@@ -365,13 +371,14 @@ void Particle::UpdateVelocity()
 
 
 //BOLJE JE UNIFORMNOM RASPODELOM, UPOREDI SA LOKALNIM RESENJEM OVDE, UPDATE X TREBA DA SE POPRAVI
-void Particle::UpdatePosition(const vector<unsigned> &D)
+void Particle::UpdatePosition()
 {
     double u = (double)rand()/RAND_MAX;
 
 //    cout << "PARTICLE(position) " << GetID() << ":" << endl;
     //UPDATE Y
 
+    int t1 = clock();
     vector<bool> y = _current.GetY();
     vector<unsigned> y_ind;
     while(y_ind.empty())
@@ -379,7 +386,7 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
         u = (double)rand()/RAND_MAX;
         for(unsigned j=0; j<y.size(); j++)
         {
-/*            double sig = 1/(1+exp(-_y_velocity[j]));
+            double sig = 1/(1+exp(-_y_velocity[j]));
             if(u<sig)
             {
                 y[j] = true;
@@ -387,12 +394,13 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
             }
             else
                 y[j] = false;
+
+/*
+            y[j] = true;
+            y_ind.push_back(j);
 */
 
-//            y[j] = true;
-//            y_ind.push_back(j);
-
-
+/*
             if(j%2)
             {
                 y[j] = true;
@@ -400,17 +408,17 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
             }
             else
                 y[j] = false;
+*/
+
         }
     }
-
 
     //UPDATE Z
     vector<bool> z = _current.GetZ();
     vector<unsigned> z_ind;
     for(unsigned k=0; k<z.size(); k++)
     {
-/*
-          double sig = 1/(1+exp(-_z_velocity[k]));
+        double sig = 1/(1+exp(-_z_velocity[k]));
         if(u<sig)
         {
             z[k] = true;
@@ -418,12 +426,12 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
         }
         else
             z[k] = false;
-*/
+
 
 //        z[k] = true;
 //        z_ind.push_back(k);
 
-
+/*
        if(k==1)
        {
            z[k] = true;
@@ -431,7 +439,7 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
        }
        else
            z[k] = false;
-
+*/
     }
 
     if(z_ind.empty())
@@ -452,7 +460,7 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
 
 
     vector<map<key, bool> > x = _current.GetX();
-    for(unsigned i=0; i<D.size(); i++)
+    for(unsigned i=0; i<x.size(); i++)
     {
         vector< pair<unsigned, unsigned> > ppairs = pairs;
         map<key, double> m = _x_velocity[i];
@@ -512,15 +520,9 @@ void Particle::UpdatePosition(const vector<unsigned> &D)
     }
 
     _current = Solution(x, y, z);
-
-/*    double tmp = Evaluate(I, J, K, D, f, g, c, d);
-
-    if(tmp < _local)
-    {
-        SetLocalBest(_current);
-        _local = tmp;
-    }
-*/
+    int t2 = clock();
+    if(jota%30 == 0)
+        cout << t2 - t1 << endl;
 
 //    PrintCurrentPosition();
 //    cout << "-----------------------------------------" << endl;
@@ -729,137 +731,105 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
         Particle particle(p, Solution(x, y, z), v_x, v_y, v_z);
         swarm.push_back(particle);
 
+        if(p%hsize == 0)
+        {
+            globals.push_back(Solution(x, y, z));
+            gvalues.push_back(numeric_limits<double>::max());
+        }
     }
 }
 
 //BOLJA IMPLEMENTACIJA AZURIRANJA GLOBALNOG RESENJA
 void PS_ComputeGlobal(vector<Particle> &swarm, const InputData &data)
 {
-    vector<bool> best_y1, best_z1;
-    vector<bool> best_y2, best_z2;
-    vector<bool> best_y3, best_z3;
-    vector<map<key, bool> > best_x1;
-    vector<map<key, bool> > best_x2;
-    vector<map<key, bool> > best_x3;
-    double t1 = global1;
-    double t2 = global2;
-    double t3 = global3;
+    /*IMPLEMENTACIJA SA NUMBER OF NAEIGHBORHOODS
+    //OVO MORA GLOBALNO I INICIJALIZOVANO
+    vector<Solution> glob;
 
-    for(unsigned i=0; i<swarm.size()/2; i++)
+    int k = 4;
+    int n = swarm.size();
+
+    unsigned q1 = (n/k +1);
+    unsigned q2 = (n%k)*(n/k + 1);
+    unsigned r = n%k;
+    for(unsigned h=0; h<r; h++)
     {
-
-        double tmp = PS_Evaluate(data, swarm[i].GetCurrentPosition());
-
-        if(tmp < swarm[i].GetLocal())
+        for(unsigned i=h*q1; i<(h+1)*q1; i++)
         {
-            swarm[i].SetLocal(tmp);
-            swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
-        }
-        if(tmp < global1)
-        {
-            global1 = tmp;
-            best_x1 = swarm[i].GetCurrentPosition().GetX();
-            best_y1 = swarm[i].GetCurrentPosition().GetY();
-            best_z1 = swarm[i].GetCurrentPosition().GetZ();
+            Solution s = swarm[i].GetCurrentPosition();
+            double tmp = PS_Evaluate(data, s);
+
+            if(tmp < swarm[i].GetLocal())
+            {
+                swarm[i].SetLocal(tmp);
+                swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
+            }
+
+            if(tmp < PS_Evaluate(data, glob[h]))
+                glob[h] = swarm[i].GetCurrentPosition();
+
         }
     }
-
-    for(unsigned i=swarm.size()/2; i<swarm.size(); i++)
+    for(unsigned h=0; h<k-r; h++)
     {
-
-        double tmp = PS_Evaluate(data, swarm[i].GetCurrentPosition());
-
-        if(tmp < swarm[i].GetLocal())
+        for(unsigned i=q2+h*(n/k); i<q2+(h+1)*(n/k); i++)
         {
-            swarm[i].SetLocal(tmp);
-            swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
+            for(unsigned i=h*q1; i<(h+1)*q1; i++)
+            {
+                Solution s = swarm[i].GetCurrentPosition();
+                double tmp = PS_Evaluate(data, s);
+
+                if(tmp < swarm[i].GetLocal())
+                {
+                    swarm[i].SetLocal(tmp);
+                    swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
+                }
+
+                if(tmp < PS_Evaluate(data, glob[h]))
+                    glob[h] = swarm[i].GetCurrentPosition();
+
+            }
         }
-        if(tmp < global2)
-        {
-            global2 = tmp;
-            best_x2 = swarm[i].GetCurrentPosition().GetX();
-            best_y2 = swarm[i].GetCurrentPosition().GetY();
-            best_z2 = swarm[i].GetCurrentPosition().GetZ();
-        }
-    }
-
-    if(global1 < t1)
-    {
-        for(unsigned i=0; i<swarm.size()/2; i++)
-            swarm[i].SetGlobalBest(Solution(best_x1, best_y1, best_z1));
-
-        cout << "New global best1: " << global1 << endl;
-
-        for(unsigned j=0; j<best_y1.size(); j++)
-            cout << best_y1[j] << " ";
-        cout << endl;
-
-        for(unsigned k=0; k<best_z1.size(); k++)
-            cout << best_z1[k] << " ";
-        cout << endl << endl;
-    }
-
-    if(global2 < t2)
-    {
-        for(unsigned i=swarm.size()/2; i<swarm.size(); i++)
-            swarm[i].SetGlobalBest(Solution(best_x2, best_y2, best_z2));
-
-        cout << "New global best2: " << global2 << endl;
-
-        for(unsigned j=0; j<best_y2.size(); j++)
-            cout << best_y2[j] << " ";
-        cout << endl;
-
-        for(unsigned k=0; k<best_z2.size(); k++)
-            cout << best_z2[k] << " ";
-        cout << endl << endl;
-    }
-
-
-/*
-    for(unsigned i=0; i<swarm.size(); i++)
-    {
-
-        double tmp = swarm[i].Evaluate(I, J, K, D, f, g, c, d);
-
-        if(tmp < swarm[i].GetLocal())
-        {
-            swarm[i].SetLocalX(swarm[i].GetCurrentX());
-            swarm[i].SetLocalY(swarm[i].GetCurrentY());
-            swarm[i].SetLocalZ(swarm[i].GetCurrentZ());
-
-            swarm[i].SetLocal(tmp);
-        }
-        if(tmp < global1)
-        {
-            global1 = tmp;
-            best_x1 = swarm[i].GetCurrentX();
-            best_y1 = swarm[i].GetCurrentY();
-            best_z1 = swarm[i].GetCurrentZ();
-        }
-    }
-
-    if(global1 < t1)
-    {
-        for(unsigned i=0; i<swarm.size(); i++)
-        {
-            swarm[i].SetGlobalX(best_x1);
-            swarm[i].SetGlobalY(best_y1);
-            swarm[i].SetGlobalZ(best_z1);
-        }
-
-        cout << "New global best1: " << global1 << endl;
-
-        for(unsigned j=0; j<best_y1.size(); j++)
-            cout << best_y1[j] << " ";
-        cout << endl;
-
-        for(unsigned k=0; k<best_z1.size(); k++)
-            cout << best_z1[k] << " ";
-        cout << endl << endl;
     }
 */
 
+    //IMPLEMENTACIJA SA HOOD SIZE
+    unsigned h=0;
+    for(unsigned i=0; i<parts; i++)
+    {
+        Solution s = swarm[i].GetCurrentPosition();
+        double tmp = PS_Evaluate(data, s);
+
+        if(tmp < swarm[i].GetLocal())
+        {
+            swarm[i].SetLocal(tmp);
+            swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
+        }
+        if(tmp < gvalues[h])
+        {
+            globals[h] = swarm[i].GetCurrentPosition();
+            gvalues[h] = tmp;
+
+            cout << "New global best " << h << ": " << tmp << endl;
+            vector<bool> y = s.GetY();
+            for(unsigned j=0; j<y.size(); j++)
+                cout << y[j] << " ";
+            cout << endl;
+
+            vector<bool> z = s.GetZ();
+            for(unsigned k=0; k<z.size(); k++)
+                cout << z[k] << " ";
+            cout << endl;
+        }
+
+        if((i+1)%hsize)
+            h++;
+    }
+}
+
+void PS_Debug(int n)
+{
+    cout << "Here " << n << endl;
 }
 
 //------------------------------------------------------------------------------------
@@ -888,17 +858,19 @@ int main(int argc, char **argv)
             cout << "------------------------------------------------------------" << endl;
         }
 
+
         PS_ComputeGlobal(swarm, data);
 
-        for(unsigned i=0; i<swarm.size(); i++)
-        {
-            swarm[i].UpdateVelocity();
-            swarm[i].UpdatePosition(data._D);
-        }
-    }
 
-    swarm[0].PrintGlobalBest();
-    swarm[swarm.size()/2].PrintGlobalBest();
+        for(unsigned j=0; j<swarm.size(); j++)
+        {
+            swarm[j].UpdateVelocity();
+            swarm[j].UpdatePosition();
+
+            jota++;
+        }
+
+    }
 
     return 0;
 }
