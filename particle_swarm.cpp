@@ -74,6 +74,10 @@ private:
     vector<double>              _y_velocity;
     vector<double>              _z_velocity;
 
+    void UpdateX(vector<map<key, bool> > &x);
+    void UpdateY(vector<bool> &y);
+    void UpdateZ(vector<bool> &z);
+
 public:
     Particle()
     {}
@@ -99,14 +103,12 @@ public:
     void PrintParticle() const;
     void PrintCurrentPosition() const;
     void PrintGlobalBest() const;
-//    void PrintLocalBest() const;
     void PrintVelocity() const;
 
-    double Evaluate(unsigned I, unsigned J, unsigned K,
-                  vector<unsigned> &D, vector<unsigned> &f, vector<unsigned> &g,
-                  vector< vector<double> > &c, vector< vector<double> > &d);
     void UpdateVelocity();
-    void UpdatePosition();
+    void UpdatePosition0();
+    void UpdatePosition1();
+    void UpdatePosition2();
 };
 
 double vmax = 10.0;
@@ -115,7 +117,7 @@ double fi_p = 2.7;
 double fi_g = 2.0;
 
 unsigned parts = 60;
-unsigned hsize = 60;
+unsigned hsize = 20;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
@@ -129,7 +131,7 @@ void PS_Load(const string &path, InputData &data);
 
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned J, unsigned K);
 
-void PS_ComputeGlobal(vector<Particle> &swarm, const InputData &data);
+void PS_Compute(const InputData &data, Particle &p);
 
 void PS_Debug(int n);
 
@@ -262,37 +264,6 @@ void Particle::PrintVelocity() const
 }
 
 
-double PS_Evaluate(const InputData &data, const Solution &s)
-{
-    vector<map<key, bool> > x = s.GetX();
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    int sum1 = 0;
-    for(unsigned j=0; j<data._J; j++)
-        sum1 += data._f[j]*y[j];
-
-    int sum2 = 0;
-    for(unsigned k=0; k<data._K; k++)
-        sum2 += data._g[k]*z[k];
-
-    double sum3 = 0;
-    for(unsigned i=0; i<data._I; i++)
-    {
-        map<key, bool> m = x[i];
-        for(map<key, bool>::const_iterator it=m.begin(); it!=m.end(); it++)
-        {
-            unsigned j = (it->first).first;
-            unsigned k = (it->first).second;
-
-            sum3 += data._D[i]*(it->second)*(data._c[i][j]+data._d[j][k]);
-        }
-     }
-
-    return sum1+sum2+sum3;
-}
-
-
 //BOLJE JE UNIFORMNOM RASPODELOM, UPDATE ZA X NIJE GOTOV
 void Particle::UpdateVelocity()
 {
@@ -310,7 +281,6 @@ void Particle::UpdateVelocity()
         map<key, double> vi = _x_velocity[i];
 
         set<key> keys;
-
         keys.insert(xc.begin()->first);
         keys.insert(xl.begin()->first);
         keys.insert(xg.begin()->first);
@@ -334,7 +304,7 @@ void Particle::UpdateVelocity()
     {
         vector<bool> yc = _current.GetY();
         vector<bool> yl = _localp.GetY();
-        vector<bool> yg = _global.GetY();
+        vector<bool> yg = globals[GetID()/hsize].GetY();
 
         _y_velocity[j] = omega*_y_velocity[j] +
                 fi_p*fp*(yl[j] - yc[j]) +
@@ -351,7 +321,7 @@ void Particle::UpdateVelocity()
     {
         vector<bool> zc = _current.GetZ();
         vector<bool> zl = _localp.GetZ();
-        vector<bool> zg = _global.GetZ();
+        vector<bool> zg = globals[GetID()/hsize].GetZ();
 
         _z_velocity[k] = omega*_z_velocity[k] +
                 fi_p*fp*(zl[k] - zc[k]) +
@@ -370,23 +340,150 @@ void Particle::UpdateVelocity()
 }
 
 
-//BOLJE JE UNIFORMNOM RASPODELOM, UPOREDI SA LOKALNIM RESENJEM OVDE, UPDATE X TREBA DA SE POPRAVI
-void Particle::UpdatePosition()
+//BOLJE JE UNIFORMNOM RASPODELOM, UPDATE X TREBA DA SE POPRAVI
+void Particle::UpdatePosition0()
 {
-    double u = (double)rand()/RAND_MAX;
-
-//    cout << "PARTICLE(position) " << GetID() << ":" << endl;
-    //UPDATE Y
-
-    int t1 = clock();
+    vector<map<key, bool> > x;
     vector<bool> y = _current.GetY();
+    vector<bool> z = _current.GetZ();
+
+    UpdateX(x);
+
+    _current = Solution(x, y, z);
+}
+
+void Particle::UpdatePosition1()
+{
+//    cout << "PARTICLE(position) " << GetID() << ":" << endl;
+    vector<map<key, bool> > x = _current.GetX();
+    vector<bool> y;
+    vector<bool> z = _current.GetZ();
+
+    UpdateY(y);
+
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(make_pair(j, k));
+
+
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        unsigned j = (x[i].begin()->first).first;
+        unsigned k = (x[i].begin()->first).second;
+
+        if(y[j] == 0 || z[k] == 0)
+        {
+            unsigned r = rand()%keys.size();
+
+            x[i].clear();
+            x[i][keys[r]] = true;
+        }
+    }
+
+    _current = Solution(x, y, z);
+
+
+//    PrintCurrentPosition();
+//    cout << "-----------------------------------------" << endl;
+//    cout << "-----------------------------------------" << endl << endl;
+}
+
+void Particle::UpdatePosition2()
+{
+//    cout << "PARTICLE(position) " << GetID() << ":" << endl;
+    vector<map<key, bool> > x = _current.GetX();
+    vector<bool> y = _current.GetY();
+    vector<bool> z;
+
+    UpdateZ(z);
+
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(make_pair(j, k));
+
+
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        unsigned j = (x[i].begin()->first).first;
+        unsigned k = (x[i].begin()->first).second;
+
+        if(y[j] == 0 || z[k] == 0)
+        {
+            unsigned r = rand()%keys.size();
+
+            x[i].clear();
+            x[i][keys[r]] = true;
+        }
+    }
+
+    _current = Solution(x, y, z);
+
+
+//    PrintCurrentPosition();
+//    cout << "-----------------------------------------" << endl;
+//    cout << "-----------------------------------------" << endl << endl;
+}
+
+
+void Particle::UpdateX(vector<map<key, bool> > &x)
+{
+    x = _current.GetX();
+    vector<bool> y = _current.GetY();
+    vector<bool> z = _current.GetZ();
+
+    vector< pair<unsigned, unsigned> > pairs;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                pairs.push_back(make_pair(j, k));
+
+
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        vector<key> keys = pairs;
+        map<key, double> m = _x_velocity[i];
+        x[i].clear();
+
+        do{
+            keys = pairs;
+            double u = (double)rand()/RAND_MAX;
+
+            unsigned k = 0;
+            while(k < keys.size())
+            {
+                double sig = 1/(1+exp(-m[keys[k]]));
+
+                if(u>=sig)
+                {
+                    keys[k] = keys.back();
+                    keys.pop_back();
+                }
+                else
+                    k++;
+            }
+        }while(keys.empty());
+
+        unsigned k = rand()%keys.size();
+        x[i][keys[k]] = true;
+    }
+}
+
+void Particle::UpdateY(vector<bool> &y)
+{
+    y = _current.GetY();
     vector<unsigned> y_ind;
+    unsigned q = 0;
     while(y_ind.empty())
     {
-        u = (double)rand()/RAND_MAX;
+        q++;
+        double u = (double)rand()/RAND_MAX;
         for(unsigned j=0; j<y.size(); j++)
         {
-            double sig = 1/(1+exp(-_y_velocity[j]));
+           double sig = 1/(1+exp(-_y_velocity[j]));
             if(u<sig)
             {
                 y[j] = true;
@@ -394,13 +491,12 @@ void Particle::UpdatePosition()
             }
             else
                 y[j] = false;
-
 /*
             y[j] = true;
             y_ind.push_back(j);
-*/
 
-/*
+
+
             if(j%2)
             {
                 y[j] = true;
@@ -409,12 +505,17 @@ void Particle::UpdatePosition()
             else
                 y[j] = false;
 */
-
         }
+        if(q%100 == 0)
+            cout << q << endl;
     }
+}
 
-    //UPDATE Z
-    vector<bool> z = _current.GetZ();
+void Particle::UpdateZ(vector<bool> &z)
+{
+    double u = (double)rand()/RAND_MAX;
+
+    z = _current.GetZ();
     vector<unsigned> z_ind;
     for(unsigned k=0; k<z.size(); k++)
     {
@@ -427,11 +528,11 @@ void Particle::UpdatePosition()
         else
             z[k] = false;
 
-
+/*
 //        z[k] = true;
 //        z_ind.push_back(k);
 
-/*
+
        if(k==1)
        {
            z[k] = true;
@@ -448,91 +549,11 @@ void Particle::UpdatePosition()
         z[k] = true;
         z_ind.push_back(k);
     }
-
-
-//    PrintParticle();
-
-    //UPDATE X, mozda bi trebalo da inicijalizujem celu matricu xvelocity
-    vector< pair<unsigned, unsigned> > pairs;
-    for(unsigned j=0; j<y_ind.size(); j++)
-        for(unsigned k=0; k<z_ind.size(); k++)
-            pairs.push_back(make_pair(y_ind[j], z_ind[k]));
-
-
-    vector<map<key, bool> > x = _current.GetX();
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        vector< pair<unsigned, unsigned> > ppairs = pairs;
-        map<key, double> m = _x_velocity[i];
-        x[i].clear();
-
-        //PRVI NACIN, MOGUCA BESKONACNA PETLJA(nije se skoro javljala)
-/*        bool b = true;
-        while(b)
-        {
-            u = (double)rand()/RAND_MAX;
-
-            unsigned j = 0;
-            while(j < ppairs.size())
-            {
-                double sig = 1/(1+exp(-m[ppairs[j]]));
-
-                if(ppairs.size() == 1)
-                {
-                    b = false;
-                    break;
-                }
-                else if(u>=sig)
-                {
-                    ppairs[j] = ppairs.back();
-                    ppairs.pop_back();
-                }
-                else
-                    j++;
-            }
-        }
-
-        _x_current[i][ppairs[0]] = true;
-*/
-
-        //DRUGI NACIN
-        do{
-            ppairs = pairs;
-            u = (double)rand()/RAND_MAX;
-
-            unsigned j = 0;
-            while(j < ppairs.size())
-            {
-                double sig = 1/(1+exp(-m[ppairs[j]]));
-
-                if(u>=sig)
-                {
-                    ppairs[j] = ppairs.back();
-                    ppairs.pop_back();
-                }
-                else
-                    j++;
-            }
-        }while(ppairs.empty());
-
-        unsigned k = rand()%ppairs.size();
-        x[i][ppairs[k]] = true;
-    }
-
-    _current = Solution(x, y, z);
-    int t2 = clock();
-    if(jota%30 == 0)
-        cout << t2 - t1 << endl;
-
-//    PrintCurrentPosition();
-//    cout << "-----------------------------------------" << endl;
-//    cout << "-----------------------------------------" << endl << endl;
-
 }
 
 //------------------------------------------------------------------------------------
 
-//NE VALJA ISTRINGSTREAM ISS, ZAOKRUZIVANJE PRILIKOM UCITAVANJA
+//ZAOKRUZIVANJE PRILIKOM UCITAVANJA
 void PS_Load(const string &path, InputData &D)
 {
     ifstream file(path);
@@ -739,98 +760,70 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
     }
 }
 
-//BOLJA IMPLEMENTACIJA AZURIRANJA GLOBALNOG RESENJA
-void PS_ComputeGlobal(vector<Particle> &swarm, const InputData &data)
+double PS_Evaluate(const InputData &data, const Solution &s)
 {
-    /*IMPLEMENTACIJA SA NUMBER OF NAEIGHBORHOODS
-    //OVO MORA GLOBALNO I INICIJALIZOVANO
-    vector<Solution> glob;
+    vector<map<key, bool> > x = s.GetX();
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
 
-    int k = 4;
-    int n = swarm.size();
+    int sum1 = 0;
+    for(unsigned j=0; j<data._J; j++)
+        sum1 += data._f[j]*y[j];
 
-    unsigned q1 = (n/k +1);
-    unsigned q2 = (n%k)*(n/k + 1);
-    unsigned r = n%k;
-    for(unsigned h=0; h<r; h++)
+    int sum2 = 0;
+    for(unsigned k=0; k<data._K; k++)
+        sum2 += data._g[k]*z[k];
+
+    double sum3 = 0;
+    for(unsigned i=0; i<data._I; i++)
     {
-        for(unsigned i=h*q1; i<(h+1)*q1; i++)
+        map<key, bool> m = x[i];
+        for(map<key, bool>::const_iterator it=m.begin(); it!=m.end(); it++)
         {
-            Solution s = swarm[i].GetCurrentPosition();
-            double tmp = PS_Evaluate(data, s);
+            unsigned j = (it->first).first;
+            unsigned k = (it->first).second;
 
-            if(tmp < swarm[i].GetLocal())
-            {
-                swarm[i].SetLocal(tmp);
-                swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
-            }
-
-            if(tmp < PS_Evaluate(data, glob[h]))
-                glob[h] = swarm[i].GetCurrentPosition();
-
+            sum3 += data._D[i]*(it->second)*(data._c[i][j]+data._d[j][k]);
         }
-    }
-    for(unsigned h=0; h<k-r; h++)
+     }
+
+    return sum1+sum2+sum3;
+}
+
+void PS_Compute(const InputData &data, Particle &p)
+{
+    Solution s = p.GetCurrentPosition();
+    unsigned h = p.GetID()/hsize;
+
+    double tmp = PS_Evaluate(data, s);
+    if(tmp < p.GetLocal())
     {
-        for(unsigned i=q2+h*(n/k); i<q2+(h+1)*(n/k); i++)
-        {
-            for(unsigned i=h*q1; i<(h+1)*q1; i++)
-            {
-                Solution s = swarm[i].GetCurrentPosition();
-                double tmp = PS_Evaluate(data, s);
-
-                if(tmp < swarm[i].GetLocal())
-                {
-                    swarm[i].SetLocal(tmp);
-                    swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
-                }
-
-                if(tmp < PS_Evaluate(data, glob[h]))
-                    glob[h] = swarm[i].GetCurrentPosition();
-
-            }
-        }
+        p.SetLocal(tmp);
+        p.SetLocalBest(s);
     }
-*/
-
-    //IMPLEMENTACIJA SA HOOD SIZE
-    unsigned h=0;
-    for(unsigned i=0; i<parts; i++)
+    if(tmp < gvalues[h])
     {
-        Solution s = swarm[i].GetCurrentPosition();
-        double tmp = PS_Evaluate(data, s);
+        globals[h] = s;
+        gvalues[h] = tmp;
+/*
+        cout << "New global best " << h << ": " << tmp << endl;
+        vector<bool> y = s.GetY();
+        for(unsigned j=0; j<y.size(); j++)
+            cout << y[j] << " ";
+        cout << endl;
 
-        if(tmp < swarm[i].GetLocal())
-        {
-            swarm[i].SetLocal(tmp);
-            swarm[i].SetLocalBest(swarm[i].GetCurrentPosition());
-        }
-        if(tmp < gvalues[h])
-        {
-            globals[h] = swarm[i].GetCurrentPosition();
-            gvalues[h] = tmp;
-
-            cout << "New global best " << h << ": " << tmp << endl;
-            vector<bool> y = s.GetY();
-            for(unsigned j=0; j<y.size(); j++)
-                cout << y[j] << " ";
-            cout << endl;
-
-            vector<bool> z = s.GetZ();
-            for(unsigned k=0; k<z.size(); k++)
-                cout << z[k] << " ";
-            cout << endl;
-        }
-
-        if((i+1)%hsize)
-            h++;
-    }
+        vector<bool> z = s.GetZ();
+        for(unsigned k=0; k<z.size(); k++)
+            cout << z[k] << " ";
+        cout << endl;
+*/    }
 }
 
 void PS_Debug(int n)
 {
     cout << "Here " << n << endl;
 }
+
 
 //------------------------------------------------------------------------------------
 
@@ -852,24 +845,61 @@ int main(int argc, char **argv)
 
     for(unsigned i=0; i<1000; i++)
     {
+        vector<double> v = gvalues;
+
         if(i%100 == 0)
         {
             cout << "ITERATION " << i << ":" << endl;
             cout << "------------------------------------------------------------" << endl;
         }
 
-
-        PS_ComputeGlobal(swarm, data);
-
-
         for(unsigned j=0; j<swarm.size(); j++)
         {
+//            int t1 = clock();
+/*            for(unsigned k=0; k<10; k++)
+            {
+                swarm[j].UpdateVelocity();
+                swarm[j].UpdatePosition0();
+                PS_Compute(data, swarm[j]);
+            }
+*/
             swarm[j].UpdateVelocity();
-            swarm[j].UpdatePosition();
+            swarm[j].UpdatePosition0();
+            PS_Compute(data, swarm[j]);
+
+            swarm[j].UpdateVelocity();
+            swarm[j].UpdatePosition1();
+            PS_Compute(data, swarm[j]);
+
+            swarm[j].UpdateVelocity();
+            swarm[j].UpdatePosition2();
+            PS_Compute(data, swarm[j]);
+//            int t2 = clock();
+//            if(jota%30 == 0)
+//                cout << t2 - t1 << endl;
 
             jota++;
         }
 
+        bool b = false;
+        for(unsigned l=0; l<v.size(); l++)
+            if(gvalues[l] < v[l])
+            {
+                cout << "New global best " << l << ": " << gvalues[l] << endl;
+                vector<bool> y = globals[l].GetY();
+                for(unsigned j=0; j<y.size(); j++)
+                    cout << y[j] << " ";
+                cout << endl;
+
+                vector<bool> z = globals[l].GetZ();
+                for(unsigned k=0; k<z.size(); k++)
+                    cout << z[k] << " ";
+                cout << endl;
+
+                b = true;
+            }
+        if(b)
+            cout << "-----------------------------------------------------" << endl;
     }
 
     return 0;
