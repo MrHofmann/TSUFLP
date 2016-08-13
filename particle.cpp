@@ -168,6 +168,7 @@ void Particle::UpdatePosition0()
     UpdateX();
 }
 
+//BILO JE BOLJE ONAKO
 void Particle::UpdatePosition1()
 {
 //    cout << "PARTICLE(position) " << GetID() << ":" << endl;
@@ -295,7 +296,7 @@ void Particle::UpdateY()
         double u = (double)rand()/RAND_MAX;
         for(unsigned j=0; j<y.size(); j++)
         {
-/*          double sig = 1/(1+exp(-_y_velocity[j]));
+          double sig = 1/(1+exp(-_y_velocity[j]));
             if(u<sig)
             {
                 y[j] = true;
@@ -303,10 +304,10 @@ void Particle::UpdateY()
             }
             else
                 y[j] = false;
-
+/*
             y[j] = true;
             y_ind.push_back(j);
-*/
+
 
             if(j%2)
             {
@@ -315,7 +316,7 @@ void Particle::UpdateY()
             }
             else
                 y[j] = false;
-
+*/
         }
         if(q%100 == 0)
             cout << q << endl;
@@ -330,38 +331,43 @@ void Particle::UpdateZ()
 
     vector<bool> z = _current.GetZ();
     vector<unsigned> z_ind;
-    for(unsigned k=0; k<z.size(); k++)
+    unsigned q = 0;
+    while(z_ind.empty() && q < 15)
     {
-/*        double sig = 1/(1+exp(-_z_velocity[k]));
-        if(u<sig)
+        for(unsigned k=0; k<z.size(); k++)
         {
-            z[k] = true;
-            z_ind.push_back(k);
+            double sig = 1/(1+exp(-_z_velocity[k]));
+            if(u<sig)
+            {
+                z[k] = true;
+                z_ind.push_back(k);
+            }
+            else
+                z[k] = false;
+
+            /*
+        //        z[k] = true;
+        //        z_ind.push_back(k);
+
+
+           if(k==1)
+           {
+               z[k] = true;
+               z_ind.push_back(k);
+           }
+           else
+               z[k] = false;
+        */
         }
-        else
-            z[k] = false;
-
-
-//        z[k] = true;
-//        z_ind.push_back(k);
-*/
-
-       if(k==1)
-       {
-           z[k] = true;
-           z_ind.push_back(k);
-       }
-       else
-           z[k] = false;
-
+        q++;
     }
-
-    if(z_ind.empty())
-    {
-        unsigned k = rand()%z.size();
-        z[k] = true;
-        z_ind.push_back(k);
-    }
+    while(z_ind.empty())
+        for(unsigned k=0; k<z.size(); k++)
+        {
+            z[k] = rand()%2;
+            if(z[k])
+                z_ind.push_back(k);
+        }
 
     _current.SetZ(z);
 }
