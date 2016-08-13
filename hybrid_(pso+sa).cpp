@@ -12,18 +12,18 @@ double omega = 0.9;
 double fi_p = 2.7;
 double fi_g = 2.0;
 
-unsigned parts = 60;
+unsigned parts = 120;
 unsigned hsize = 60;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
 vector<double> gvalues;
 
-
+/*
 unsigned temp = 50000;
-double alpha = 0.9;
+double alpha = 0.96;
 Solution global;
-
+*/
 
 class InputData
 {
@@ -48,7 +48,7 @@ public:
 };
 
 
-//--------------------------------------------------------------------------------------------
+//------------------PARTICLE-SWARM-------------------------------------------------------------
 
 //ZAOKRUZIVANJE PRILIKOM UCITAVANJA
 void PS_Load(const string &path, InputData &D)
@@ -336,7 +336,8 @@ void PS_Debug(int n)
 }
 
 
-//----------------------------------------------------------------------------------------------
+//-----------------SIMULATED-ANNEALING---------------------------------------------------------
+
 void SA_Load(const string &path, InputData &D)
 {
     ifstream file(path);
@@ -505,7 +506,7 @@ void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
     s = Solution(x, y, z);
 }
 
-//MOZE MALO BOLJI IZBOR OKOLINE
+//MOZE MALO BOLJI IZBOR OKOLINE, MOZDA IPAK BOLJE OVAKO
 Solution SA_GetRandomNeighbor1(const Solution &s)
 {
     vector<map<key, bool> > x = s.GetX();
@@ -609,9 +610,57 @@ double SA_Evaluate(const InputData &data, const Solution &s)
     return sum1+sum2+sum3;
 }
 
-void SA_ApplyGeometricCooling(double &t)
+void SA_ApplyGeometricCooling(double &t, double alpha)
 {
     t *= alpha;
+}
+
+
+//-------------------HYBRID------------------------------------------------------------------------
+
+bool H_ApplySA(const InputData &data, Solution &global, double &gvalue, double temp, double alpha)
+{
+    unsigned iterations = data._I+data._J+data._K;
+    bool ret = false;
+
+    Solution s = global;
+    while(temp > 0.00001)
+    {
+        for(unsigned it=0; it<iterations/2; it++)
+        {
+            Solution sp;
+            if(it%10 == 0)
+                sp = SA_GetRandomNeighbor1(s);
+            else
+                sp = SA_GetRandomNeighbor2(s);
+
+
+            double sp_value = SA_Evaluate(data, sp);
+
+            if(sp_value < gvalue)
+            {
+                global = sp;
+                gvalue = sp_value;
+                ret = true;
+            }
+            if(sp_value < SA_Evaluate(data, s))
+                s = sp;
+            else
+            {
+                //BOLJE UNIFORMNA RASPODELA
+                double delta_f = sp_value - SA_Evaluate(data, s);
+                double p = (double)rand()/RAND_MAX;
+
+                if(p > 1/exp(delta_f/temp))
+                    s = sp;
+            }
+
+        }
+
+        SA_ApplyGeometricCooling(temp, alpha);
+    }
+
+    return ret;
 }
 
 
@@ -633,7 +682,7 @@ int main(int argc, char *argv[])
     PS_InitParticles(swarm, parts, data._I, data._J, data._K);
 
 
-    for(unsigned i=0; i<1000; i++)
+    for(unsigned i=0; i<500; i++)
     {
         vector<double> v = gvalues;
 
@@ -674,48 +723,10 @@ int main(int argc, char *argv[])
                 cout << endl;
 
 //-------------------------------------------------------------------------------
-                unsigned iterations = data._I+data._J+data._K;
-                double t = temp;
-                bool b = false;
 
-                global=globals[l];
-                while(t > 0.0001)
+                if(H_ApplySA(data, globals[l], gvalues[l], 50000, 0.98))
                 {
-                    for(unsigned it=0; it<iterations/2; it++)
-                    {
-                        Solution sp;
-                        if(it%10 == 0)
-                            sp = SA_GetRandomNeighbor1(global);
-                        else
-                            sp = SA_GetRandomNeighbor2(global);
 
-
-                        double sp_value = SA_Evaluate(data, sp);
-
-                        if(sp_value < SA_Evaluate(data, globals[l]))
-                        {
-                            globals[l] = sp;
-                            gvalues[l] = sp_value;
-
-                            b = true;
-                        }
-                        if(sp_value < SA_Evaluate(data, global))
-                            global = sp;
-                        else
-                        {
-                            //BOLJE UNIFORMNA RASPODELA
-                            double delta_f = SA_Evaluate(data, sp) - SA_Evaluate(data, global);
-                            double p = (double)rand()/RAND_MAX;
-
-                            if(p > 1/exp(delta_f/t))
-                                global = sp;
-                        }
-                    }
-
-                    SA_ApplyGeometricCooling(t);
-                }
-                if(b)
-                {
                     cout << "New global best " << l << ": " << gvalues[l] << "(SA)" << endl;
                     vector<bool> y = globals[l].GetY();
                     for(unsigned j=0; j<y.size(); j++)
@@ -728,12 +739,13 @@ int main(int argc, char *argv[])
                     cout << endl;
                 }
 //-------------------------------------------------------------------------------------------------
-
                 a = true;
             }
         if(a)
             cout << "-----------------------------------------------------" << endl;
     }
 
+
     return 0;
 }
+
