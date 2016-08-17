@@ -6,16 +6,14 @@
 double vmax = 10.0;
 double omega = 0.9;
 double fi_p = 2.7;
-double fi_g = 2.0;
+double fi_g = 1.0;
 
 unsigned parts = 60;
-unsigned hsize = 60;
+unsigned hsize = 20;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
 vector<double> gvalues;
-
-int jota = 0;
 
 
 int main(int argc, char **argv)
@@ -35,7 +33,10 @@ int main(int argc, char **argv)
     PS_InitParticles(swarm, parts, data._I, data._J, data._K);
 
 
-    for(unsigned i=0; i<1000; i++)
+    int t1 = clock();
+    int t2, t3;
+    unsigned q = 0;
+    for(unsigned i=0; i<1000 && q<100; i++)
     {
         vector<double> v = gvalues;
 
@@ -47,30 +48,25 @@ int main(int argc, char **argv)
 
         for(unsigned j=0; j<swarm.size(); j++)
         {
-//            int t1 = clock();
-/*            for(unsigned k=0; k<10; k++)
-            {
-                swarm[j].UpdateVelocity();
-                swarm[j].UpdatePosition0();
-                PS_Compute(data, swarm[j]);
-            }
-*/
-            swarm[j].UpdateVelocity();
             swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
             PS_Compute(data, swarm[j]);
 
-            swarm[j].UpdateVelocity();
             swarm[j].UpdatePosition1();
+            swarm[j].UpdateVelocity1();
             PS_Compute(data, swarm[j]);
 
-            swarm[j].UpdateVelocity();
+            swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
+            PS_Compute(data, swarm[j]);
+
             swarm[j].UpdatePosition2();
+            swarm[j].UpdateVelocity2();
             PS_Compute(data, swarm[j]);
-//            int t2 = clock();
-//            if(jota%30 == 0)
-//                cout << t2 - t1 << endl;
 
-            jota++;
+            swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
+            PS_Compute(data, swarm[j]);
         }
 
         bool b = false;
@@ -89,10 +85,19 @@ int main(int argc, char **argv)
                 cout << endl;
 
                 b = true;
+                q = 0;
             }
         if(b)
+        {
             cout << "-----------------------------------------------------" << endl;
+
+            t2 = clock();
+        }
+        q++;
     }
+
+    t3 = clock();
+    cout << (t2 - t1)/CLOCKS_PER_SEC << " " << (t3 - t1)/CLOCKS_PER_SEC << endl;
 
     return 0;
 }
