@@ -39,6 +39,8 @@ void SA_Load(const string &path, InputData &D);
 void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K);
 
 //MOZE MALO BOLJI IZBOR OKOLINE
+Solution SA_GetRandomNeighbor0(const Solution &s);
+
 Solution SA_GetRandomNeighbor1(const Solution &s);
 
 Solution SA_GetRandomNeighbor2(const Solution &s);

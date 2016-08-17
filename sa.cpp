@@ -168,7 +168,29 @@ void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
     s = Solution(x, y, z);
 }
 
-//MOZE MALO BOLJI IZBOR OKOLINE
+
+//MOZE MALO BOLJI IZBOR OKOLINE, MOZDA IPAK BOLJE OVAKO
+Solution SA_GetRandomNeighbor0(const Solution &s)
+{
+    vector<map<key, bool> > x = s.GetX();
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
+
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(key(j,k));
+
+    unsigned r = rand()%x.size();
+    unsigned k = rand()%keys.size();
+
+    x[r].clear();
+    x[r][keys[k]] = true;
+
+    return Solution(x, y, z);
+}
+
 Solution SA_GetRandomNeighbor1(const Solution &s)
 {
     vector<map<key, bool> > x = s.GetX();
@@ -188,7 +210,33 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
                 b = false;
     }
 
-    b = true;
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(key(j,k));
+
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        unsigned j = ((x[i].begin())->first).first;
+        unsigned k = ((x[i].begin())->first).second;
+        if(!y[j] || !z[k])
+        {
+            x[i].clear();
+            unsigned r3 = rand()%keys.size();
+            x[i][keys[r3]] = true;
+        }
+    }
+    return Solution(x,y,z);
+}
+
+Solution SA_GetRandomNeighbor2(const Solution &s)
+{
+    vector<map<key, bool> > x = s.GetX();
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
+
+    bool b = true;
     while(b)
     {
         z = s.GetZ();
@@ -221,26 +269,6 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
     return Solution(x,y,z);
 }
 
-Solution SA_GetRandomNeighbor2(const Solution &s)
-{
-    vector<map<key, bool> > x = s.GetX();
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    vector<key> keys;
-    for(unsigned j=0; j<y.size(); j++)
-        for(unsigned k=0; k<z.size(); k++)
-            if(y[j] && z[k])
-                keys.push_back(key(j,k));
-
-    unsigned r = rand()%x.size();
-    unsigned k = rand()%keys.size();
-
-    x[r].clear();
-    x[r][keys[k]] = true;
-
-    return Solution(x, y, z);
-}
 
 double SA_Evaluate(const InputData &data, const Solution &s)
 {
@@ -276,3 +304,4 @@ void SA_ApplyGeometricCooling(double &t)
 {
     t *= alpha;
 }
+
