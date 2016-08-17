@@ -266,22 +266,10 @@ void PS_Compute(const InputData &data, Particle &p)
     {
         globals[h] = s;
         gvalues[h] = tmp;
-/*
-        cout << "New global best " << h << ": " << tmp << endl;
-        vector<bool> y = s.GetY();
-        for(unsigned j=0; j<y.size(); j++)
-            cout << y[j] << " ";
-        cout << endl;
-
-        vector<bool> z = s.GetZ();
-        for(unsigned k=0; k<z.size(); k++)
-            cout << z[k] << " ";
-        cout << endl;
-*/    }
+    }
 }
 
 void PS_Debug(int n)
 {
     cout << "Here " << n << endl;
 }
-
