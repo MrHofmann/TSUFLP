@@ -3,7 +3,7 @@
 
 
 unsigned temp = 50000;
-double alpha = 0.75;
+double alpha = 0.99;
 Solution global;
 
 
@@ -25,19 +25,21 @@ int main(int argc, char *argv[])
     SA_Load(argv[1], data);
     SA_InitSolution(s, data._I, data._J, data._K);
 
-    unsigned iterations = data._I+data._J+data._K;
+    unsigned iterations = data._I*data._J*data._K + data._J + data._K;
     double t = temp;
 
     global=s;
-    while(t > 0.0001)
+    while(t > 0.0000001)
     {
         for(unsigned i=0; i<iterations/2; i++)
         {
             Solution sp;
+            if(i%20 == 0)
+                sp = SA_GetRandomNeighbor2(s);
             if(i%10 == 0)
                 sp = SA_GetRandomNeighbor1(s);
             else
-                sp = SA_GetRandomNeighbor2(s);
+                sp = SA_GetRandomNeighbor0(s);
 
             if(SA_Evaluate(data,sp) < SA_Evaluate(data, global))
                 global = sp;
@@ -58,6 +60,7 @@ int main(int argc, char *argv[])
     }
 
     cout << SA_Evaluate(data, global) << endl;
+    global.PrintSolution();
 
     return 0;
 }
