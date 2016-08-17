@@ -55,6 +55,7 @@ public:
     Solution GetGlobalBest() const;
 
     void SetLocal(double local);
+    void SetCurrentPosition(const Solution &s);
     void SetGlobalBest(const Solution &s);
     void SetLocalBest(const Solution &s);
 
@@ -64,6 +65,10 @@ public:
     void PrintVelocity() const;
 
     void UpdateVelocity();
+    void UpdateVelocity0();
+    void UpdateVelocity1();
+    void UpdateVelocity2();
+
     void UpdatePosition0();
     void UpdatePosition1();
     void UpdatePosition2();

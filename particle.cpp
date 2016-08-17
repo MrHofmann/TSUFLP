@@ -27,6 +27,11 @@ Solution Particle::GetGlobalBest() const
 }
 
 
+void Particle::SetCurrentPosition(const Solution &s)
+{
+    _current = s;
+}
+
 void Particle::SetLocalBest(const Solution &s)
 {
     _localp = s;
@@ -89,14 +94,14 @@ void Particle::PrintVelocity() const
 //BOLJE JE UNIFORMNOM RASPODELOM, UPDATE ZA X NIJE GOTOV
 void Particle::UpdateVelocity()
 {
-    double fp = (double)rand()/RAND_MAX;
-    double fg = (double)rand()/RAND_MAX;
-    fp = fp*(1.0 - 0.5) + 0.5;
-    fg = fg*(1.0 - 0.5) + 0.5;
-
 //    cout << "PARTICLE(velocity) " << GetID() << ":" << endl << endl;
     for(unsigned i=0; i<_x_velocity.size(); i++)
     {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
         map<key, bool> xc = GetCurrentPosition().GetX()[i];
         map<key, bool> xl = GetLocalBest().GetX()[i];
         map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
@@ -124,6 +129,11 @@ void Particle::UpdateVelocity()
 
     for(unsigned j=0; j<_y_velocity.size(); j++)
     {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
         vector<bool> yc = _current.GetY();
         vector<bool> yl = _localp.GetY();
         vector<bool> yg = globals[GetID()/hsize].GetY();
@@ -141,6 +151,11 @@ void Particle::UpdateVelocity()
 
     for(unsigned k=0; k<_z_velocity.size(); k++)
     {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
         vector<bool> zc = _current.GetZ();
         vector<bool> zl = _localp.GetZ();
         vector<bool> zg = globals[GetID()/hsize].GetZ();
@@ -161,6 +176,153 @@ void Particle::UpdateVelocity()
 */
 }
 
+void Particle::UpdateVelocity0()
+{
+    for(unsigned i=0; i<_x_velocity.size(); i++)
+    {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
+        map<key, bool> xc = GetCurrentPosition().GetX()[i];
+        map<key, bool> xl = GetLocalBest().GetX()[i];
+        map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
+        map<key, double> vi = _x_velocity[i];
+
+        set<key> keys;
+        keys.insert(xc.begin()->first);
+        keys.insert(xl.begin()->first);
+        keys.insert(xg.begin()->first);
+        for(map<key, double>::const_iterator it=vi.begin(); it!=vi.end(); it++)
+            keys.insert(it->first);
+
+
+        for(set<key>::const_iterator it=keys.begin(); it!=keys.end(); it++)
+        {
+            key k = *it;
+            double v = omega*vi[k] + fi_p*fp*(xl[k] - xc[k])+ fi_g*fg*(xg[k] - xc[k]);
+
+            v = (v > vmax)? vmax : v;
+            v = (v < -vmax)? -vmax : v;
+
+            _x_velocity[i][k] = v;
+        }
+    }
+}
+
+void Particle::UpdateVelocity1()
+{
+    for(unsigned i=0; i<_x_velocity.size(); i++)
+    {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
+        map<key, bool> xc = GetCurrentPosition().GetX()[i];
+        map<key, bool> xl = GetLocalBest().GetX()[i];
+        map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
+        map<key, double> vi = _x_velocity[i];
+
+        set<key> keys;
+        keys.insert(xc.begin()->first);
+        keys.insert(xl.begin()->first);
+        keys.insert(xg.begin()->first);
+        for(map<key, double>::const_iterator it=vi.begin(); it!=vi.end(); it++)
+            keys.insert(it->first);
+
+
+        for(set<key>::const_iterator it=keys.begin(); it!=keys.end(); it++)
+        {
+            key k = *it;
+            double v = omega*vi[k] + fi_p*fp*(xl[k] - xc[k])+ fi_g*fg*(xg[k] - xc[k]);
+
+            v = (v > vmax)? vmax : v;
+            v = (v < -vmax)? -vmax : v;
+
+            _x_velocity[i][k] = v;
+        }
+    }
+
+    for(unsigned j=0; j<_y_velocity.size(); j++)
+    {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
+        vector<bool> yc = _current.GetY();
+        vector<bool> yl = _localp.GetY();
+        vector<bool> yg = globals[GetID()/hsize].GetY();
+
+        _y_velocity[j] = omega*_y_velocity[j] +
+                fi_p*fp*(yl[j] - yc[j]) +
+                fi_g*fg*(yg[j] - yc[j]);
+
+        if(_y_velocity[j] > vmax)
+            _y_velocity[j] = vmax;
+        else if(_y_velocity[j] < -vmax)
+            _y_velocity[j] = -vmax;
+    }
+}
+
+void Particle::UpdateVelocity2()
+{
+    for(unsigned i=0; i<_x_velocity.size(); i++)
+    {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
+        map<key, bool> xc = GetCurrentPosition().GetX()[i];
+        map<key, bool> xl = GetLocalBest().GetX()[i];
+        map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
+        map<key, double> vi = _x_velocity[i];
+
+        set<key> keys;
+        keys.insert(xc.begin()->first);
+        keys.insert(xl.begin()->first);
+        keys.insert(xg.begin()->first);
+        for(map<key, double>::const_iterator it=vi.begin(); it!=vi.end(); it++)
+            keys.insert(it->first);
+
+
+        for(set<key>::const_iterator it=keys.begin(); it!=keys.end(); it++)
+        {
+            key k = *it;
+            double v = omega*vi[k] + fi_p*fp*(xl[k] - xc[k])+ fi_g*fg*(xg[k] - xc[k]);
+
+            v = (v > vmax)? vmax : v;
+            v = (v < -vmax)? -vmax : v;
+
+            _x_velocity[i][k] = v;
+        }
+    }
+
+    for(unsigned k=0; k<_z_velocity.size(); k++)
+    {
+        double fp = (double)rand()/RAND_MAX;
+        double fg = (double)rand()/RAND_MAX;
+        fp = fp*(2.5 - 2.0) + 2.0;
+        fg = fg*(2.5 - 2.0) + 2.0;
+
+        vector<bool> zc = _current.GetZ();
+        vector<bool> zl = _localp.GetZ();
+        vector<bool> zg = globals[GetID()/hsize].GetZ();
+
+        _z_velocity[k] = omega*_z_velocity[k] +
+                fi_p*fp*(zl[k] - zc[k]) +
+                fi_g*fg*(zg[k] - zc[k]);
+
+        if(_z_velocity[k] > vmax)
+            _z_velocity[k] = vmax;
+        else if(_z_velocity[k] < -vmax)
+            _z_velocity[k] = -vmax;
+    }
+}
+
 
 //BOLJE JE UNIFORMNOM RASPODELOM
 void Particle::UpdatePosition0()
@@ -168,12 +330,11 @@ void Particle::UpdatePosition0()
     UpdateX();
 }
 
-//BILO JE BOLJE ONAKO
 void Particle::UpdatePosition1()
 {
 //    cout << "PARTICLE(position) " << GetID() << ":" << endl;
     vector<map<key, bool> > x = _current.GetX();
-    vector<bool> z = _current.GetZ();
+//    vector<bool> z = _current.GetZ();
 
     UpdateY();
     vector<bool> y = _current.GetY();
@@ -196,7 +357,8 @@ void Particle::UpdatePosition1()
         }
     }
 
-    _current = Solution(x, y, z);
+    _current.SetX(x);
+//    _current = Solution(x, y, z);
 
 
 //    PrintCurrentPosition();
@@ -208,7 +370,6 @@ void Particle::UpdatePosition2()
 {
 //    cout << "PARTICLE(position) " << GetID() << ":" << endl;
     vector<map<key, bool> > x = _current.GetX();
-    vector<bool> y = _current.GetY();
 
     UpdateZ();
     vector<bool> z = _current.GetZ();
@@ -231,7 +392,7 @@ void Particle::UpdatePosition2()
         }
     }
 
-    _current = Solution(x, y, z);
+    _current.SetX(x);
 
 
 //    PrintCurrentPosition();
@@ -281,7 +442,15 @@ void Particle::UpdateX()
         unsigned k = rand()%keys.size();
         x[i][keys[k]] = true;
     }
+/*
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        x[i].clear();
+        unsigned k = rand()%pairs.size();
 
+        x[i][pairs[k]] = true;
+    }
+*/
     _current.SetX(x);
 }
 
@@ -319,7 +488,7 @@ void Particle::UpdateY()
 */
         }
         if(q%100 == 0)
-            cout << q << endl;
+            cout << "y: " << q << endl;
     }
 
     _current.SetY(y);
