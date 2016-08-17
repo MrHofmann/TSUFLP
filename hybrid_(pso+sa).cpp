@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <ctime>
 #include "particle.h"
 
 using namespace std;
@@ -10,20 +11,15 @@ using namespace std;
 double vmax = 10.0;
 double omega = 0.9;
 double fi_p = 2.7;
-double fi_g = 2.0;
+double fi_g = 1.0;
 
-unsigned parts = 120;
-unsigned hsize = 60;
+unsigned parts = 40;
+unsigned hsize = 40;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
 vector<double> gvalues;
 
-/*
-unsigned temp = 50000;
-double alpha = 0.96;
-Solution global;
-*/
 
 class InputData
 {
@@ -316,18 +312,7 @@ void PS_Compute(const InputData &data, Particle &p)
     {
         globals[h] = s;
         gvalues[h] = tmp;
-/*
-        cout << "New global best " << h << ": " << tmp << endl;
-        vector<bool> y = s.GetY();
-        for(unsigned j=0; j<y.size(); j++)
-            cout << y[j] << " ";
-        cout << endl;
-
-        vector<bool> z = s.GetZ();
-        for(unsigned k=0; k<z.size(); k++)
-            cout << z[k] << " ";
-        cout << endl;
-*/    }
+    }
 }
 
 void PS_Debug(int n)
@@ -506,7 +491,29 @@ void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
     s = Solution(x, y, z);
 }
 
+
 //MOZE MALO BOLJI IZBOR OKOLINE, MOZDA IPAK BOLJE OVAKO
+Solution SA_GetRandomNeighbor0(const Solution &s)
+{
+    vector<map<key, bool> > x = s.GetX();
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
+
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(key(j,k));
+
+    unsigned r = rand()%x.size();
+    unsigned k = rand()%keys.size();
+
+    x[r].clear();
+    x[r][keys[k]] = true;
+
+    return Solution(x, y, z);
+}
+
 Solution SA_GetRandomNeighbor1(const Solution &s)
 {
     vector<map<key, bool> > x = s.GetX();
@@ -526,7 +533,33 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
                 b = false;
     }
 
-    b = true;
+    vector<key> keys;
+    for(unsigned j=0; j<y.size(); j++)
+        for(unsigned k=0; k<z.size(); k++)
+            if(y[j] && z[k])
+                keys.push_back(key(j,k));
+
+    for(unsigned i=0; i<x.size(); i++)
+    {
+        unsigned j = ((x[i].begin())->first).first;
+        unsigned k = ((x[i].begin())->first).second;
+        if(!y[j] || !z[k])
+        {
+            x[i].clear();
+            unsigned r3 = rand()%keys.size();
+            x[i][keys[r3]] = true;
+        }
+    }
+    return Solution(x,y,z);
+}
+
+Solution SA_GetRandomNeighbor2(const Solution &s)
+{
+    vector<map<key, bool> > x = s.GetX();
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
+
+    bool b = true;
     while(b)
     {
         z = s.GetZ();
@@ -559,26 +592,6 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
     return Solution(x,y,z);
 }
 
-Solution SA_GetRandomNeighbor2(const Solution &s)
-{
-    vector<map<key, bool> > x = s.GetX();
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    vector<key> keys;
-    for(unsigned j=0; j<y.size(); j++)
-        for(unsigned k=0; k<z.size(); k++)
-            if(y[j] && z[k])
-                keys.push_back(key(j,k));
-
-    unsigned r = rand()%x.size();
-    unsigned k = rand()%keys.size();
-
-    x[r].clear();
-    x[r][keys[k]] = true;
-
-    return Solution(x, y, z);
-}
 
 double SA_Evaluate(const InputData &data, const Solution &s)
 {
@@ -618,21 +631,70 @@ void SA_ApplyGeometricCooling(double &t, double alpha)
 
 //-------------------HYBRID------------------------------------------------------------------------
 
-bool H_ApplySA(const InputData &data, Solution &global, double &gvalue, double temp, double alpha)
+bool H_ApplySA1(const InputData &data, Particle &p, double temp, double alpha)
 {
-    unsigned iterations = data._I+data._J+data._K;
+//    unsigned iterations = data._I*data._J*data._K+data._J+data._K ;
+    bool ret = false;
+
+    Solution s = p.GetCurrentPosition();
+    while(temp > 10000)
+    {
+        for(unsigned it=1; it<11; it++)
+        {
+            Solution sp;
+            if(it%20 == 0)
+                sp = SA_GetRandomNeighbor2(s);
+            else if(it%10 == 0)
+                sp = SA_GetRandomNeighbor1(s);
+            else
+                sp = SA_GetRandomNeighbor0(s);
+
+
+            double sp_value = SA_Evaluate(data, sp);
+
+            if(sp_value < SA_Evaluate(data, p.GetCurrentPosition()))
+            {
+                p.SetCurrentPosition(sp);
+                PS_Compute(data, p);
+                p.UpdateVelocity();
+                ret = true;
+            }
+            if(sp_value < SA_Evaluate(data, s))
+                s = sp;
+            else
+            {
+                //BOLJE UNIFORMNA RASPODELA
+                double delta_f = sp_value - SA_Evaluate(data, s);
+                double p = (double)rand()/RAND_MAX;
+
+                if(p > 1/exp(delta_f/temp))
+                    s = sp;
+            }
+        }
+
+        SA_ApplyGeometricCooling(temp, alpha);
+    }
+
+    return ret;
+}
+
+bool H_ApplySA2(const InputData &data, Solution &global, double &gvalue, double temp, double alpha)
+{
+    unsigned iterations = data._I*data._J*data._K + data._J + data._K;
     bool ret = false;
 
     Solution s = global;
     while(temp > 0.00001)
     {
-        for(unsigned it=0; it<iterations/2; it++)
+        for(unsigned it=1; it<iterations/2; it++)
         {
             Solution sp;
-            if(it%10 == 0)
+            if(it%20 == 0)
+                sp = SA_GetRandomNeighbor2(s);
+            else if(it%10 == 0)
                 sp = SA_GetRandomNeighbor1(s);
             else
-                sp = SA_GetRandomNeighbor2(s);
+                sp = SA_GetRandomNeighbor0(s);
 
 
             double sp_value = SA_Evaluate(data, sp);
@@ -678,15 +740,17 @@ int main(int argc, char *argv[])
     InputData data;
     PS_Load(argv[1], data);
 
+    int t1 = clock();
+    int t2, t3;
     vector<Particle> swarm;
     PS_InitParticles(swarm, parts, data._I, data._J, data._K);
 
-
-    for(unsigned i=0; i<500; i++)
+    unsigned i=0;
+    while(i<20)
     {
         vector<double> v = gvalues;
 
-        if(i%100 == 0)
+        if(i%10 == 0)
         {
             cout << "ITERATION " << i << ":" << endl;
             cout << "------------------------------------------------------------" << endl;
@@ -694,24 +758,35 @@ int main(int argc, char *argv[])
 
         for(unsigned j=0; j<swarm.size(); j++)
         {
-            swarm[j].UpdateVelocity();
             swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
             PS_Compute(data, swarm[j]);
 
-            swarm[j].UpdateVelocity();
             swarm[j].UpdatePosition1();
+            swarm[j].UpdateVelocity1();
             PS_Compute(data, swarm[j]);
 
-            swarm[j].UpdateVelocity();
-            swarm[j].UpdatePosition2();
+            swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
             PS_Compute(data, swarm[j]);
+
+            swarm[j].UpdatePosition2();
+            swarm[j].UpdateVelocity2();
+            PS_Compute(data, swarm[j]);
+
+            swarm[j].UpdatePosition0();
+            swarm[j].UpdateVelocity0();
+            PS_Compute(data, swarm[j]);
+
+            H_ApplySA1(data, swarm[j], 50000, 0.9);
+//            PS_Compute(data, swarm[j]);
         }
 
         bool a = false;
         for(unsigned l=0; l<v.size(); l++)
             if(gvalues[l] < v[l])
             {
-                cout << "New global best " << l << ": " << gvalues[l] << "(PSO)" << endl;
+                cout << "New global best " << l << ": " << gvalues[l] << "(PSO + SA1)" << endl;
                 vector<bool> y = globals[l].GetY();
                 for(unsigned j=0; j<y.size(); j++)
                     cout << y[j] << " ";
@@ -721,30 +796,42 @@ int main(int argc, char *argv[])
                 for(unsigned k=0; k<z.size(); k++)
                     cout << z[k] << " ";
                 cout << endl;
-
+/*
+                globals[l].PrintSolution();
+*/
 //-------------------------------------------------------------------------------
 
-                if(H_ApplySA(data, globals[l], gvalues[l], 50000, 0.98))
-                {
+//                if(H_ApplySA2(data, globals[l], gvalues[l], 50000, 0.9))
+//                {
 
-                    cout << "New global best " << l << ": " << gvalues[l] << "(SA)" << endl;
-                    vector<bool> y = globals[l].GetY();
-                    for(unsigned j=0; j<y.size(); j++)
-                        cout << y[j] << " ";
-                    cout << endl;
+//                    cout << "New global best " << l << ": " << gvalues[l] << "(SA2)" << endl;
+//                    vector<bool> y = globals[l].GetY();
+//                    for(unsigned j=0; j<y.size(); j++)
+//                        cout << y[j] << " ";
+//                    cout << endl;
 
-                    vector<bool> z = globals[l].GetZ();
-                    for(unsigned k=0; k<z.size(); k++)
-                        cout << z[k] << " ";
-                    cout << endl;
-                }
+//                    vector<bool> z = globals[l].GetZ();
+//                    for(unsigned k=0; k<z.size(); k++)
+//                        cout << z[k] << " ";
+//                    cout << endl;
+
+////                    globals[l].PrintSolution();
+//                }
 //-------------------------------------------------------------------------------------------------
                 a = true;
+                i = 0;
             }
         if(a)
+        {
             cout << "-----------------------------------------------------" << endl;
+
+            t2 = clock();
+        }
+        i++;
     }
 
+    t3 = clock();
+    cout << (t2 - t1)/CLOCKS_PER_SEC << " " << (t3 - t1)/CLOCKS_PER_SEC << endl;
 
     return 0;
 }
