@@ -1,6 +1,7 @@
 #include "particle.h"
 
 
+
 unsigned Particle::GetID() const
 {
     return _id;
@@ -276,6 +277,7 @@ void Particle::UpdateVelocity2()
         fp = fp*(2.5 - 2.0) + 2.0;
         fg = fg*(2.5 - 2.0) + 2.0;
 
+
         map<key, bool> xc = GetCurrentPosition().GetX()[i];
         map<key, bool> xl = GetLocalBest().GetX()[i];
         map<key, bool> xg = globals[GetID()/hsize].GetX()[i];
@@ -330,118 +332,160 @@ void Particle::UpdatePosition0()
     UpdateX();
 }
 
+//OVO
 void Particle::UpdatePosition1()
 {
-//    cout << "PARTICLE(position) " << GetID() << ":" << endl;
-    vector<map<key, bool> > x = _current.GetX();
-//    vector<bool> z = _current.GetZ();
-
     UpdateY();
+
+    vector<map<key, bool> > x = _current.GetX();
+    vector<bool> z = _current.GetZ();
     vector<bool> y = _current.GetY();
+
     vector<unsigned> y_ind;
     for(unsigned j=0; j<y.size(); j++)
         if(y[j])
             y_ind.push_back(j);
 
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        unsigned j = (x[i].begin()->first).first;
-        unsigned k = (x[i].begin()->first).second;
-
-        if(y[j] == 0)
-        {
-            unsigned r = rand()%y_ind.size();
-
-            x[i].clear();
-            x[i][key(y_ind[r], k)] = true;
-        }
-    }
-
-    _current.SetX(x);
-//    _current = Solution(x, y, z);
-
-
-//    PrintCurrentPosition();
-//    cout << "-----------------------------------------" << endl;
-//    cout << "-----------------------------------------" << endl << endl;
-}
-
-void Particle::UpdatePosition2()
-{
-//    cout << "PARTICLE(position) " << GetID() << ":" << endl;
-    vector<map<key, bool> > x = _current.GetX();
-
-    UpdateZ();
-    vector<bool> z = _current.GetZ();
     vector<unsigned> z_ind;
     for(unsigned k=0; k<z.size(); k++)
         if(z[k])
             z_ind.push_back(k);
 
-    for(unsigned i=0; i<x.size(); i++)
+    if(y_ind.empty() || z_ind.empty())
     {
-        unsigned j = (x[i].begin()->first).first;
-        unsigned k = (x[i].begin()->first).second;
-
-        if(z[k] == 0)
-        {
-            unsigned r = rand()%z_ind.size();
-
+        for(unsigned i=0; i<x.size(); i++)
             x[i].clear();
-            x[i][key(j, z_ind[r])] = true;
-        }
+
+        _current.SetX(x);
+        return;
     }
 
+
+    for(unsigned i=0; i<x.size(); i++)
+        if(!x[i].empty())
+        {
+            unsigned j = (x[i].begin()->first).first;
+            unsigned k = (x[i].begin()->first).second;
+
+            if(y[j] == 0)
+            {
+                unsigned r = rand()%y_ind.size();
+
+                x[i].clear();
+                x[i][key(y_ind[r], k)] = true;
+            }
+        }
+        else
+        {
+            unsigned r1 = rand()%y_ind.size();
+            unsigned r2 = rand()%z_ind.size();
+
+            x[i][key(y_ind[r1], z_ind[r2])] = true;
+        }
+
     _current.SetX(x);
+}
+//OVO
+void Particle::UpdatePosition2()
+{
+    UpdateZ();
+
+    vector<map<key, bool> > x = _current.GetX();
+    vector<bool> y = _current.GetY();
+    vector<bool> z = _current.GetZ();
+
+    vector<unsigned> y_ind;
+    for(unsigned j=0; j<y.size(); j++)
+        if(y[j])
+            y_ind.push_back(j);
+
+    vector<unsigned> z_ind;
+    for(unsigned k=0; k<z.size(); k++)
+        if(z[k])
+            z_ind.push_back(k);
+
+    if(y_ind.empty() || z_ind.empty())
+    {
+        for(unsigned i=0; i<x.size(); i++)
+            x[i].clear();
+
+        _current.SetX(x);
+        return;
+    }
 
 
-//    PrintCurrentPosition();
-//    cout << "-----------------------------------------" << endl;
-//    cout << "-----------------------------------------" << endl << endl;
+    for(unsigned i=0; i<x.size(); i++)
+        if(!x[i].empty())
+        {
+            unsigned j = (x[i].begin()->first).first;
+            unsigned k = (x[i].begin()->first).second;
+
+            if(z[k] == 0)
+            {
+                unsigned r = rand()%z_ind.size();
+
+                x[i].clear();
+                x[i][key(j, z_ind[r])] = true;
+            }
+        }
+        else
+        {
+            unsigned r1 = rand()%y_ind.size();
+            unsigned r2 = rand()%z_ind.size();
+
+            x[i][key(y_ind[r1], z_ind[r2])] = true;
+        }
+
+    _current.SetX(x);
 }
 
-
+//OVO
 void Particle::UpdateX()
 {
     vector<map<key, bool> > x = _current.GetX();
     vector<bool> y = _current.GetY();
     vector<bool> z = _current.GetZ();
 
-    vector< pair<unsigned, unsigned> > pairs;
+    vector<key> pairs;
     for(unsigned j=0; j<y.size(); j++)
         for(unsigned k=0; k<z.size(); k++)
             if(y[j] && z[k])
-                pairs.push_back(make_pair(j, k));
+                pairs.push_back(key(j, k));
 
 
     for(unsigned i=0; i<x.size(); i++)
     {
-        vector<key> keys = pairs;
-        map<key, double> m = _x_velocity[i];
         x[i].clear();
 
-        do{
-            keys = pairs;
-            double u = (double)rand()/RAND_MAX;
+        if(!pairs.empty())
+        {
+            vector<key> keys = pairs;
+            map<key, double> m = _x_velocity[i];
 
-            unsigned k = 0;
-            while(k < keys.size())
-            {
-                double sig = 1/(1+exp(-m[keys[k]]));
+            do{
+                keys = pairs;
+                double u = (double)rand()/RAND_MAX;
 
-                if(u>=sig)
+                unsigned k = 0;
+                while(k < keys.size())
                 {
-                    keys[k] = keys.back();
-                    keys.pop_back();
-                }
-                else
-                    k++;
-            }
-        }while(keys.empty());
+                    double sig = 1/(1+exp(-m[keys[k]]));
 
-        unsigned k = rand()%keys.size();
-        x[i][keys[k]] = true;
+                    if(u>=sig)
+                    {
+                        keys[k] = keys.back();
+                        keys.pop_back();
+                    }
+                    else
+                        k++;
+                }
+            }while(keys.empty());
+
+            unsigned k = rand()%keys.size();
+            x[i][keys[k]] = true;
+        }
     }
+
 /*
     for(unsigned i=0; i<x.size(); i++)
     {
@@ -451,6 +495,7 @@ void Particle::UpdateX()
         x[i][pairs[k]] = true;
     }
 */
+
     _current.SetX(x);
 }
 
@@ -458,37 +503,30 @@ void Particle::UpdateY()
 {
     vector<bool> y = _current.GetY();
     vector<unsigned> y_ind;
-    unsigned q = 0;
-    while(y_ind.empty())
+    double u = (double)rand()/RAND_MAX;
+    for(unsigned j=0; j<y.size(); j++)
     {
-        q++;
-        double u = (double)rand()/RAND_MAX;
-        for(unsigned j=0; j<y.size(); j++)
+      double sig = 1/(1+exp(-_y_velocity[j]));
+        if(u<sig)
         {
-          double sig = 1/(1+exp(-_y_velocity[j]));
-            if(u<sig)
-            {
-                y[j] = true;
-                y_ind.push_back(j);
-            }
-            else
-                y[j] = false;
-/*
             y[j] = true;
             y_ind.push_back(j);
-
-
-            if(j%2)
-            {
-                y[j] = true;
-                y_ind.push_back(j);
-            }
-            else
-                y[j] = false;
-*/
         }
-        if(q%100 == 0)
-            cout << "y: " << q << endl;
+        else
+            y[j] = false;
+/*
+        y[j] = true;
+        y_ind.push_back(j);
+
+
+        if(j%2)
+        {
+            y[j] = true;
+            y_ind.push_back(j);
+        }
+        else
+            y[j] = false;
+*/
     }
 
     _current.SetY(y);
@@ -500,43 +538,31 @@ void Particle::UpdateZ()
 
     vector<bool> z = _current.GetZ();
     vector<unsigned> z_ind;
-    unsigned q = 0;
-    while(z_ind.empty() && q < 15)
+    for(unsigned k=0; k<z.size(); k++)
     {
-        for(unsigned k=0; k<z.size(); k++)
+        double sig = 1/(1+exp(-_z_velocity[k]));
+        if(u<sig)
         {
-            double sig = 1/(1+exp(-_z_velocity[k]));
-            if(u<sig)
-            {
-                z[k] = true;
-                z_ind.push_back(k);
-            }
-            else
-                z[k] = false;
-
-            /*
-        //        z[k] = true;
-        //        z_ind.push_back(k);
-
-
-           if(k==1)
-           {
-               z[k] = true;
-               z_ind.push_back(k);
-           }
-           else
-               z[k] = false;
-        */
+            z[k] = true;
+            z_ind.push_back(k);
         }
-        q++;
+        else
+            z[k] = false;
+
+        /*
+    //        z[k] = true;
+    //        z_ind.push_back(k);
+
+
+       if(k==1)
+       {
+           z[k] = true;
+           z_ind.push_back(k);
+       }
+       else
+           z[k] = false;
+    */
     }
-    while(z_ind.empty())
-        for(unsigned k=0; k<z.size(); k++)
-        {
-            z[k] = rand()%2;
-            if(z[k])
-                z_ind.push_back(k);
-        }
 
     _current.SetZ(z);
 }

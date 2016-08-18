@@ -8,13 +8,13 @@
 using namespace std;
 
 
-double vmax = 10.0;
-double omega = 0.9;
-double fi_p = 2.7;
-double fi_g = 1.0;
+double vmax = 8.2;
+double omega = 0.99;
+double fi_p = 3.0;
+double fi_g = 0.2;
 
 unsigned parts = 40;
-unsigned hsize = 40;
+unsigned hsize = 20;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
@@ -158,6 +158,7 @@ void PS_Load(const string &path, InputData &D)
 
 }
 
+//OVO
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned J, unsigned K)
 {
     for(unsigned p=0; p<n; p++)
@@ -165,53 +166,29 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
         //RANDOMIZE Y
         vector<bool> y;
         vector<unsigned> y_ind;
-        while(y_ind.empty())
+        for(unsigned j=0; j<J; j++)
         {
-            y.clear();
-            y_ind.clear();
-            for(unsigned j=0; j<J; j++)
-            {
-                unsigned s = rand()%2;
-                y.push_back(s);
+            unsigned s = rand()%2;
+            y.push_back(s);
 
-                if(s == 1)
-                    y_ind.push_back(j);
-            }
+            if(s == 1)
+                y_ind.push_back(j);
         }
 
-/*
-        for(unsigned j=0; j<J; j++)
-            if(j%2)
-            {
-                y[j] = true;
-            }
-            else
-                y[j] = false;
 
-*/
         //RANDOMIZE Z
         vector<bool> z;
         vector<unsigned> z_ind;
-        while(z_ind.empty())
-        {
-            z.clear();
-            z_ind.clear();
-            for(unsigned k=0; k<K; k++)
-            {
-                unsigned s = rand()%2;
-                z.push_back(s);
-
-                if(s == 1)
-                    z_ind.push_back(k);
-            }
-        }
-/*
         for(unsigned k=0; k<K; k++)
-            if(k==1)
-                z[k] = true;
-            else
-                z[k] = false;
-*/
+        {
+            unsigned s = rand()%2;
+            z.push_back(s);
+
+            if(s == 1)
+                z_ind.push_back(k);
+        }
+
+
         //RANDOMIZE X
         vector< pair<unsigned, unsigned> > pairs;
         for(unsigned j=0; j<y_ind.size(); j++)
@@ -222,8 +199,11 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
         for(unsigned i=0; i<I; i++)
         {
             map<key, bool> m;
-            unsigned k = rand()%pairs.size();
-            m[pairs[k]] = true;
+            if(!pairs.empty())
+            {
+                unsigned k = rand()%pairs.size();
+                m[pairs[k]] = true;
+            }
 
             x.push_back(m);
         }
@@ -234,10 +214,14 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
         for(unsigned i=0; i<I; i++)
         {
             map<key, double> m;
-            map<key, bool>::iterator it = x[i].begin();
-            double r = (double)rand()/RAND_MAX;
+            if(!x[i].empty())
+            {
+                map<key, bool>::iterator it = x[i].begin();
+                double r = (double)rand()/RAND_MAX;
 
-            m[it->first] = r*2*vmax - vmax;
+                m[it->first] = r*2*vmax - vmax;
+            }
+
             v_x.push_back(m);
         }
 
@@ -267,6 +251,7 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
     }
 }
 
+//OVO
 double PS_Evaluate(const InputData &data, const Solution &s)
 {
     vector<map<key, bool> > x = s.GetX();
@@ -292,7 +277,10 @@ double PS_Evaluate(const InputData &data, const Solution &s)
 
             sum3 += data._D[i]*(it->second)*(data._c[i][j]+data._d[j][k]);
         }
-     }
+    }
+
+    if(sum1 == 0 || sum2 == 0)
+        return numeric_limits<double>::max();
 
     return sum1+sum2+sum3;
 }
@@ -320,6 +308,19 @@ void PS_Debug(int n)
     cout << "Here " << n << endl;
 }
 
+void PS_Debug(const Particle &p)
+{
+    vector<map<key, bool> > x = p.GetCurrentPosition().GetX();
+    vector<bool> y = p.GetCurrentPosition().GetY();
+    vector<bool> z = p.GetCurrentPosition().GetZ();
+
+    if(x.empty())
+        cerr << "X prazan" << endl;
+    else if(y.empty())
+        cerr << "Y prazan" << endl;
+    else if(z.empty())
+        cerr << "Z prazan" << endl;
+}
 
 //-----------------SIMULATED-ANNEALING---------------------------------------------------------
 
@@ -492,6 +493,7 @@ void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
 }
 
 
+//OVO SVE
 //MOZE MALO BOLJI IZBOR OKOLINE, MOZDA IPAK BOLJE OVAKO
 Solution SA_GetRandomNeighbor0(const Solution &s)
 {
@@ -506,11 +508,16 @@ Solution SA_GetRandomNeighbor0(const Solution &s)
                 keys.push_back(key(j,k));
 
     unsigned r = rand()%x.size();
-    unsigned k = rand()%keys.size();
 
-    x[r].clear();
-    x[r][keys[k]] = true;
+    if(keys.empty())
+        x[r].clear();
+    else
+    {
+        unsigned k = rand()%keys.size();
 
+        x[r].clear();
+        x[r][keys[k]] = true;
+    }
     return Solution(x, y, z);
 }
 
@@ -539,17 +546,23 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
             if(y[j] && z[k])
                 keys.push_back(key(j,k));
 
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        unsigned j = ((x[i].begin())->first).first;
-        unsigned k = ((x[i].begin())->first).second;
-        if(!y[j] || !z[k])
-        {
+
+    if(keys.empty())
+        for(unsigned i=0; i<x.size(); i++)
             x[i].clear();
-            unsigned r3 = rand()%keys.size();
-            x[i][keys[r3]] = true;
+    else
+        for(unsigned i=0; i<x.size(); i++)
+        {
+            unsigned j = ((x[i].begin())->first).first;
+            unsigned k = ((x[i].begin())->first).second;
+            if(!y[j] || !z[k])
+            {
+                x[i].clear();
+                unsigned r3 = rand()%keys.size();
+                x[i][keys[r3]] = true;
+            }
         }
-    }
+
     return Solution(x,y,z);
 }
 
@@ -578,21 +591,26 @@ Solution SA_GetRandomNeighbor2(const Solution &s)
             if(y[j] && z[k])
                 keys.push_back(key(j,k));
 
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        unsigned j = ((x[i].begin())->first).first;
-        unsigned k = ((x[i].begin())->first).second;
-        if(!y[j] || !z[k])
-        {
+    if(keys.empty())
+        for(unsigned i=0; i<x.size(); i++)
             x[i].clear();
-            unsigned r3 = rand()%keys.size();
-            x[i][keys[r3]] = true;
+    else
+        for(unsigned i=0; i<x.size(); i++)
+        {
+            unsigned j = ((x[i].begin())->first).first;
+            unsigned k = ((x[i].begin())->first).second;
+            if(!y[j] || !z[k])
+            {
+                x[i].clear();
+                unsigned r3 = rand()%keys.size();
+                x[i][keys[r3]] = true;
+            }
         }
-    }
+
     return Solution(x,y,z);
 }
 
-
+//OVO
 double SA_Evaluate(const InputData &data, const Solution &s)
 {
     vector<map<key, bool> > x = s.GetX();
@@ -620,6 +638,9 @@ double SA_Evaluate(const InputData &data, const Solution &s)
         }
      }
 
+    if(sum1 == 0 || sum2 == 0)
+        return numeric_limits<double>::max();
+
     return sum1+sum2+sum3;
 }
 
@@ -635,6 +656,7 @@ bool H_ApplySA1(const InputData &data, Particle &p, double temp, double alpha)
 {
 //    unsigned iterations = data._I*data._J*data._K+data._J+data._K ;
     bool ret = false;
+
 
     Solution s = p.GetCurrentPosition();
     while(temp > 10000)
@@ -674,6 +696,7 @@ bool H_ApplySA1(const InputData &data, Particle &p, double temp, double alpha)
 
         SA_ApplyGeometricCooling(temp, alpha);
     }
+
 
     return ret;
 }
@@ -746,7 +769,7 @@ int main(int argc, char *argv[])
     PS_InitParticles(swarm, parts, data._I, data._J, data._K);
 
     unsigned i=0;
-    while(i<20)
+    while(i<100)
     {
         vector<double> v = gvalues;
 
@@ -778,7 +801,7 @@ int main(int argc, char *argv[])
             swarm[j].UpdateVelocity0();
             PS_Compute(data, swarm[j]);
 
-            H_ApplySA1(data, swarm[j], 50000, 0.9);
+//            H_ApplySA1(data, swarm[j], 50000, 0.9);
 //            PS_Compute(data, swarm[j]);
         }
 
