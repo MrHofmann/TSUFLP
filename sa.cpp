@@ -1,8 +1,12 @@
+#include <limits>
 #include "sa.h"
 
-void SA_Load(const string &path, InputData &D)
+void SA_Load(const string &s, InputData &D)
 {
-    ifstream file(path);
+    string str;
+    str = "instances/input_" + s + ".txt";
+
+    ifstream file(str);
     if(!file.is_open())
     {
         cerr << "Error open file" << endl;
@@ -111,7 +115,51 @@ void SA_Load(const string &path, InputData &D)
 
 }
 
-void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
+void SA_Save(const string s, Solution &g, double &v, int t1, int t2)
+{
+    string str;
+    str = "results/output_" + s + ".txt";
+
+    ofstream file(str, ios::app);
+    if(!file.is_open())
+    {
+        cerr << "Output failed!" << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    stringstream ss;
+    time_t t = time(0);
+    struct tm * now = localtime( & t );
+    ss <<  now->tm_mday << '-'
+        << (now->tm_mon + 1) << '-'
+        << (now->tm_year + 1900) << " "
+        << now->tm_hour << ":"
+        << now->tm_min << ":"
+        << now->tm_sec << endl;
+
+
+    vector<bool> y = g.GetY();
+    unsigned depots = 0;
+    for(unsigned j=0; j<y.size(); j++)
+        if(y[j])
+            depots++;
+
+    vector<bool> z = g.GetZ();
+    unsigned plants = 0;
+    for(unsigned k=0; k<z.size(); k++)
+        if(z[k])
+            plants++;
+
+
+    file << "INSTANCE " << s << ":\t" << ss.str() << endl
+         << "Plants:\t\t" << plants << endl
+         << "Depots:\t\t" << depots << endl
+         << "Function Value:\t" << v << endl
+         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl << endl << endl;
+
+}
+
+void SA_InitSolution(Solution &s,unsigned J, unsigned K)
 {
     //RANDOMIZE Y
     vector<bool> y;
@@ -148,52 +196,12 @@ void SA_InitSolution(Solution &s,unsigned I, unsigned J, unsigned K)
         }
     }
 
-
-    //RANDOMIZE X
-    vector< pair<unsigned, unsigned> > pairs;
-    for(unsigned j=0; j<y_ind.size(); j++)
-        for(unsigned k=0; k<z_ind.size(); k++)
-            pairs.push_back(make_pair(y_ind[j], z_ind[k]));
-
-    vector<map<key, bool> > x;
-    for(unsigned i=0; i<I; i++)
-    {
-        map<key, bool> m;
-        unsigned k = rand()%pairs.size();
-        m[pairs[k]] = true;
-
-        x.push_back(m);
-    }
-
-    s = Solution(x, y, z);
+    s = Solution(y, z);
 }
 
-
-//MOZE MALO BOLJI IZBOR OKOLINE, MOZDA IPAK BOLJE OVAKO
-Solution SA_GetRandomNeighbor0(const Solution &s)
-{
-    vector<map<key, bool> > x = s.GetX();
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    vector<key> keys;
-    for(unsigned j=0; j<y.size(); j++)
-        for(unsigned k=0; k<z.size(); k++)
-            if(y[j] && z[k])
-                keys.push_back(key(j,k));
-
-    unsigned r = rand()%x.size();
-    unsigned k = rand()%keys.size();
-
-    x[r].clear();
-    x[r][keys[k]] = true;
-
-    return Solution(x, y, z);
-}
 
 Solution SA_GetRandomNeighbor1(const Solution &s)
 {
-    vector<map<key, bool> > x = s.GetX();
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
 
@@ -210,29 +218,11 @@ Solution SA_GetRandomNeighbor1(const Solution &s)
                 b = false;
     }
 
-    vector<key> keys;
-    for(unsigned j=0; j<y.size(); j++)
-        for(unsigned k=0; k<z.size(); k++)
-            if(y[j] && z[k])
-                keys.push_back(key(j,k));
-
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        unsigned j = ((x[i].begin())->first).first;
-        unsigned k = ((x[i].begin())->first).second;
-        if(!y[j] || !z[k])
-        {
-            x[i].clear();
-            unsigned r3 = rand()%keys.size();
-            x[i][keys[r3]] = true;
-        }
-    }
-    return Solution(x,y,z);
+    return Solution(y,z);
 }
 
 Solution SA_GetRandomNeighbor2(const Solution &s)
 {
-    vector<map<key, bool> > x = s.GetX();
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
 
@@ -249,30 +239,12 @@ Solution SA_GetRandomNeighbor2(const Solution &s)
                 b = false;
     }
 
-    vector<key> keys;
-    for(unsigned j=0; j<y.size(); j++)
-        for(unsigned k=0; k<z.size(); k++)
-            if(y[j] && z[k])
-                keys.push_back(key(j,k));
-
-    for(unsigned i=0; i<x.size(); i++)
-    {
-        unsigned j = ((x[i].begin())->first).first;
-        unsigned k = ((x[i].begin())->first).second;
-        if(!y[j] || !z[k])
-        {
-            x[i].clear();
-            unsigned r3 = rand()%keys.size();
-            x[i][keys[r3]] = true;
-        }
-    }
-    return Solution(x,y,z);
+    return Solution(y,z);
 }
 
 
 double SA_Evaluate(const InputData &data, const Solution &s)
 {
-    vector<map<key, bool> > x = s.GetX();
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
 
@@ -280,22 +252,32 @@ double SA_Evaluate(const InputData &data, const Solution &s)
     for(unsigned j=0; j<data._J; j++)
         sum1 += data._f[j]*y[j];
 
+    if(sum1 == 0)
+        return numeric_limits<double>::max();
+
     int sum2 = 0;
     for(unsigned k=0; k<data._K; k++)
         sum2 += data._g[k]*z[k];
 
+    if(sum2 == 0)
+        return numeric_limits<double>::max();
+
     double sum3 = 0;
     for(unsigned i=0; i<data._I; i++)
     {
-        map<key, bool> m = x[i];
-        for(map<key, bool>::const_iterator it=m.begin(); it!=m.end(); it++)
-        {
-            unsigned j = (it->first).first;
-            unsigned k = (it->first).second;
+        double tmp1 = numeric_limits<double>::max();
 
-            sum3 += data._D[i]*(it->second)*(data._c[i][j]+data._d[j][k]);
-        }
-     }
+        for(unsigned j=0; j<y.size(); j++)
+            for(unsigned k=0; k<z.size(); k++)
+                if(y[j] && z[k])
+                {
+                    double tmp2 = data._D[i]*(data._c[i][j] + data._d[j][k]);
+                    if(tmp2 < tmp1)
+                        tmp1 = tmp2;
+                }
+
+        sum3 += tmp1;
+    }
 
     return sum1+sum2+sum3;
 }

@@ -1,8 +1,11 @@
 #include "ps.h"
 //ZAOKRUZIVANJE PRILIKOM UCITAVANJA
-void PS_Load(const string &path, InputData &D)
+void PS_Load(const string &s, InputData &D)
 {
-    ifstream file(path);
+    string str;
+    str = "instances/input_" + s + ".txt";
+
+    ifstream file(str);
     if(!file.is_open())
     {
         cerr << "Error open file" << endl;
@@ -111,72 +114,81 @@ void PS_Load(const string &path, InputData &D)
 
 }
 
-//OVO
-void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned J, unsigned K)
+void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2)
+{
+    string str;
+    str = "results/output_" + s + ".txt";
+
+    ofstream file(str, ios::app);
+    if(!file.is_open())
+    {
+        cerr << "Output failed!" << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    stringstream ss;
+    time_t t = time(0);
+    struct tm * now = localtime( & t );
+    ss <<  now->tm_mday << '-'
+        << (now->tm_mon + 1) << '-'
+        << (now->tm_year + 1900) << " "
+        << now->tm_hour << ":"
+        << now->tm_min << ":"
+        << now->tm_sec << endl;
+
+    double tmp = numeric_limits<double>::max();
+    unsigned l = 0;
+    for(unsigned i=0; i<v.size(); i++)
+        if(v[i] < tmp)
+        {
+            tmp = v[i];
+            l = i;
+        }
+
+
+    vector<bool> y = g[l].GetY();
+    unsigned depots = 0;
+    for(unsigned j=0; j<y.size(); j++)
+        if(y[j])
+            depots++;
+
+    vector<bool> z = g[l].GetZ();
+    unsigned plants = 0;
+    for(unsigned k=0; k<z.size(); k++)
+        if(z[k])
+            plants++;
+
+
+    file << "INSTANCE " << s << ":\t" << ss.str() << endl
+         << "Plants:\t\t" << plants << endl
+         << "Depots:\t\t" << depots << endl
+         << "Function Value:\t" << gvalues[l] << endl
+         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl << endl << endl;
+
+}
+
+void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned K)
 {
     for(unsigned p=0; p<n; p++)
     {
         //RANDOMIZE Y
         vector<bool> y;
-        vector<unsigned> y_ind;
         for(unsigned j=0; j<J; j++)
         {
             unsigned s = rand()%2;
             y.push_back(s);
-
-            if(s == 1)
-                y_ind.push_back(j);
         }
 
 
         //RANDOMIZE Z
         vector<bool> z;
-        vector<unsigned> z_ind;
         for(unsigned k=0; k<K; k++)
         {
             unsigned s = rand()%2;
             z.push_back(s);
-
-            if(s == 1)
-                z_ind.push_back(k);
         }
 
 
-        //RANDOMIZE X
-        vector< pair<unsigned, unsigned> > pairs;
-        for(unsigned j=0; j<y_ind.size(); j++)
-            for(unsigned k=0; k<z_ind.size(); k++)
-                pairs.push_back(make_pair(y_ind[j], z_ind[k]));
-
-        vector<map<key, bool> > x;
-        for(unsigned i=0; i<I; i++)
-        {
-            map<key, bool> m;
-            if(!pairs.empty())
-            {
-                unsigned k = rand()%pairs.size();
-                m[pairs[k]] = true;
-            }
-
-            x.push_back(m);
-        }
-
-
-        //RANDOMIZE VELOCITY (bolje uniformnom raspodelom)
-        vector< map<key, double> > v_x;
-        for(unsigned i=0; i<I; i++)
-        {
-            map<key, double> m;
-            if(!x[i].empty())
-            {
-                map<key, bool>::iterator it = x[i].begin();
-                double r = (double)rand()/RAND_MAX;
-
-                m[it->first] = r*2*vmax - vmax;
-            }
-
-            v_x.push_back(m);
-        }
 
         vector<double> v_y;
         for(unsigned j=0; j<J; j++)
@@ -192,22 +204,19 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned I, unsigned 
             v_z.push_back(r*2*vmax - vmax);
         }
 
-
-        Particle particle(p, Solution(x, y, z), v_x, v_y, v_z);
+        Particle particle(p, Solution(y, z), v_y, v_z);
         swarm.push_back(particle);
 
         if(p%hsize == 0)
         {
-            globals.push_back(Solution(x, y, z));
+            globals.push_back(Solution(y, z));
             gvalues.push_back(numeric_limits<double>::max());
         }
     }
 }
 
-//OVO
 double PS_Evaluate(const InputData &data, const Solution &s)
 {
-    vector<map<key, bool> > x = s.GetX();
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
 
@@ -215,32 +224,41 @@ double PS_Evaluate(const InputData &data, const Solution &s)
     for(unsigned j=0; j<data._J; j++)
         sum1 += data._f[j]*y[j];
 
+    if(sum1 == 0)
+        return numeric_limits<double>::max();
+
     int sum2 = 0;
     for(unsigned k=0; k<data._K; k++)
         sum2 += data._g[k]*z[k];
 
+    if(sum2 == 0)
+        return numeric_limits<double>::max();
+
+
     double sum3 = 0;
     for(unsigned i=0; i<data._I; i++)
     {
-        map<key, bool> m = x[i];
-        for(map<key, bool>::const_iterator it=m.begin(); it!=m.end(); it++)
-        {
-            unsigned j = (it->first).first;
-            unsigned k = (it->first).second;
+        double tmp1 = numeric_limits<double>::max();
 
-            sum3 += data._D[i]*(it->second)*(data._c[i][j]+data._d[j][k]);
-        }
+        for(unsigned j=0; j<y.size(); j++)
+            for(unsigned k=0; k<z.size(); k++)
+                if(y[j] && z[k])
+                {
+                    double tmp2 = data._D[i]*(data._c[i][j] + data._d[j][k]);
+                    if(tmp2 < tmp1)
+                        tmp1 = tmp2;
+                }
+
+        sum3 += tmp1;
     }
-
-    if(sum1 == 0 || sum2 == 0)
-        return numeric_limits<double>::max();
 
     return sum1+sum2+sum3;
 }
 
 void PS_Compute(const InputData &data, Particle &p)
 {
-    Solution s = p.GetCurrentPosition();
+//    Solution s = p.GetCurrentPosition();
+    Solution s(p.GetCurrentPosition().GetY(),p.GetCurrentPosition().GetZ());
     unsigned h = p.GetID()/hsize;
 
     double tmp = PS_Evaluate(data, s);
@@ -263,13 +281,10 @@ void PS_Debug(int n)
 
 void PS_Debug(const Particle &p)
 {
-    vector<map<key, bool> > x = p.GetCurrentPosition().GetX();
     vector<bool> y = p.GetCurrentPosition().GetY();
     vector<bool> z = p.GetCurrentPosition().GetZ();
 
-    if(x.empty())
-        cerr << "X prazan" << endl;
-    else if(y.empty())
+    if(y.empty())
         cerr << "Y prazan" << endl;
     else if(z.empty())
         cerr << "Z prazan" << endl;

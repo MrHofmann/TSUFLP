@@ -2,10 +2,32 @@
 #include "sa.h"
 
 
-unsigned temp = 50000;
-double alpha = 0.99;
+unsigned temp = 5000;
+double alpha = 0.9;
 Solution global;
 
+
+void SA_Compute(InputData &data, double t, Solution &s, Solution &sp, Solution &global)
+{
+    double tmp = SA_Evaluate(data, sp);
+    if(tmp < SA_Evaluate(data, global))
+    {
+        global = sp;
+        cout << "New global: " << tmp << endl;
+        global.PrintSolution();
+    }
+    if(tmp < SA_Evaluate(data, s))
+        s = sp;
+    else
+    {
+        //BOLJE UNIFORMNA RASPODELA
+        double delta_f = tmp - SA_Evaluate(data, s);
+        double p = (double)rand()/RAND_MAX;
+
+        if(p > 1/exp(delta_f/t))
+            s = sp;
+    }
+}
 
 //------------------------------------------------------------------------------------//
 
@@ -20,47 +42,44 @@ int main(int argc, char *argv[])
     srand(time(0));
 
     InputData data;
-    Solution s;
 
     SA_Load(argv[1], data);
-    SA_InitSolution(s, data._I, data._J, data._K);
+    SA_InitSolution(global, data._J, data._K);
 
-    unsigned iterations = data._I*data._J*data._K + data._J + data._K;
+    int t1 = clock();
+    int t2, t3;
+    unsigned iterations = data._J + data._K;
     double t = temp;
-
-    global=s;
-    while(t > 0.0000001)
+    for(unsigned k=0; t>0.1 && k<20; k++)
     {
-        for(unsigned i=0; i<iterations/2; i++)
+        double tmp = SA_Evaluate(data, global);
+        Solution s;
+        SA_InitSolution(s, data._J, data._K);
+
+        for(unsigned i=0; i<iterations*10; i++)
         {
             Solution sp;
-            if(i%20 == 0)
-                sp = SA_GetRandomNeighbor2(s);
-            if(i%10 == 0)
-                sp = SA_GetRandomNeighbor1(s);
-            else
-                sp = SA_GetRandomNeighbor0(s);
 
-            if(SA_Evaluate(data,sp) < SA_Evaluate(data, global))
-                global = sp;
-            if(SA_Evaluate(data, sp) < SA_Evaluate(data, s))
-                s = sp;
-            else
-            {
-                //BOLJE UNIFORMNA RASPODELA
-                double delta_f = SA_Evaluate(data, sp) - SA_Evaluate(data, s);
-                double p = (double)rand()/RAND_MAX;
+            sp = SA_GetRandomNeighbor1(s);
+            SA_Compute(data, t, s, sp, global);
 
-                if(p > 1/exp(delta_f/t))
-                    s = sp;
-            }
+            sp = SA_GetRandomNeighbor2(s);
+            SA_Compute(data, t, s, sp, global);
         }
 
         SA_ApplyGeometricCooling(t);
+
+        if(SA_Evaluate(data, global) < tmp)
+        {
+            t3 = clock();
+            k=0;
+        }
     }
 
-    cout << SA_Evaluate(data, global) << endl;
-    global.PrintSolution();
+    t2 = clock();
+    double tmp = SA_Evaluate(data, global);
+    SA_Save(argv[1], global, tmp, t1, t2);
+    cout << (double)(t3-t1)/CLOCKS_PER_SEC;
 
     return 0;
 }

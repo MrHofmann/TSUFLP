@@ -26,27 +26,43 @@ private:
 
     Solution                    _current;
     Solution                    _localp;
-    Solution                    _global;
 
-    vector< map<key, double> >  _x_velocity;
     vector<double>              _y_velocity;
     vector<double>              _z_velocity;
-
-    void UpdateX();
-    void UpdateY();
-    void UpdateZ();
 
 public:
     Particle()
     {}
     Particle(unsigned id,
-             const Solution &curr, vector< map<key, double> > x_vel,
-             vector<double> y_vel, vector<double> z_vel)
-        : _id(id), _current(curr), _localp(curr),
-          _x_velocity(x_vel), _y_velocity(y_vel), _z_velocity(z_vel)
+             const Solution &curr, vector<double> y_vel, vector<double> z_vel)
+        : _id(id), _current(curr), _localp(curr), _y_velocity(y_vel), _z_velocity(z_vel)
     {
         _local = numeric_limits<double>::max();
     }
+
+/*    Particle(const Particle &p)
+        :_id(p.GetID()), _current(p.GetCurrentPosition()), _localp(p.GetCurrentPosition())
+    {
+        _y_velocity = vector<double>(_current.GetY().size(), 0);
+        _z_velocity = vector<double>(_current.GetZ().size(), 0);
+        _local = numeric_limits<double>::max();
+    }
+
+    Particle &operator = (const Particle& p)
+    {
+        _id = p.GetID();
+        _current = p.GetCurrentPosition();
+        _localp = p.GetLocalBest();
+        _local = p.GetLocal();
+
+        _y_velocity = vector<double>(_current.GetY().size(), 0);
+        _z_velocity = vector<double>(_current.GetZ().size(), 0);
+
+        return *this;
+    }
+
+    ~Particle(){}
+*/
 
     unsigned GetID() const;
     double GetLocal() const;
@@ -65,11 +81,9 @@ public:
     void PrintVelocity() const;
 
     void UpdateVelocity();
-    void UpdateVelocity0();
     void UpdateVelocity1();
     void UpdateVelocity2();
 
-    void UpdatePosition0();
     void UpdatePosition1();
     void UpdatePosition2();
 };

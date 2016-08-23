@@ -3,12 +3,12 @@
 #include "ps.h"
 
 
-double vmax = 10.0;
-double omega = 0.9;
-double fi_p = 2.7;
-double fi_g = 1.0;
+double vmax = 8.2;
+double omega = 0.99;
+double fi_p = 6.0;
+double fi_g = 0.5;
 
-unsigned parts = 60;
+unsigned parts = 20;
 unsigned hsize = 20;
 unsigned hoods = ceil(parts/hsize);
 
@@ -30,17 +30,17 @@ int main(int argc, char **argv)
     PS_Load(argv[1], data);
 
     vector<Particle> swarm;
-    PS_InitParticles(swarm, parts, data._I, data._J, data._K);
+    PS_InitParticles(swarm, parts, data._J, data._K);
 
 
     int t1 = clock();
     int t2, t3;
     unsigned q = 0;
-    for(unsigned i=0; i<1000 && q<100; i++)
+    for(unsigned i=0; q<500; i++)
     {
         vector<double> v = gvalues;
 
-        if(i%100 == 0)
+        if(i%1000 == 0)
         {
             cout << "ITERATION " << i << ":" << endl;
             cout << "------------------------------------------------------------" << endl;
@@ -48,24 +48,19 @@ int main(int argc, char **argv)
 
         for(unsigned j=0; j<swarm.size(); j++)
         {
-            swarm[j].UpdatePosition0();
-            swarm[j].UpdateVelocity0();
-            PS_Compute(data, swarm[j]);
+            swarm[j].UpdateVelocity();
 
-            swarm[j].UpdatePosition1();
-            swarm[j].UpdateVelocity1();
-            PS_Compute(data, swarm[j]);
+            if(i%3 == 0)
+            {
+                swarm[j].UpdatePosition2();
+//                swarm[j].UpdateVelocity2();
+            }
+            else
+            {
+                swarm[j].UpdatePosition1();
+//                swarm[j].UpdateVelocity1();
+            }
 
-            swarm[j].UpdatePosition0();
-            swarm[j].UpdateVelocity0();
-            PS_Compute(data, swarm[j]);
-
-            swarm[j].UpdatePosition2();
-            swarm[j].UpdateVelocity2();
-            PS_Compute(data, swarm[j]);
-
-            swarm[j].UpdatePosition0();
-            swarm[j].UpdateVelocity0();
             PS_Compute(data, swarm[j]);
         }
 
@@ -86,18 +81,18 @@ int main(int argc, char **argv)
 
                 b = true;
                 q = 0;
+                t3 = clock();
             }
         if(b)
         {
             cout << "-----------------------------------------------------" << endl;
-
-            t2 = clock();
         }
         q++;
     }
 
-    t3 = clock();
-    cout << (t2 - t1)/CLOCKS_PER_SEC << " " << (t3 - t1)/CLOCKS_PER_SEC << endl;
+    t2 = clock();
+    PS_Save(argv[1], globals, gvalues, t1, t2);
+    cout << (double)(t3-t1)/CLOCKS_PER_SEC;
 
     return 0;
 }

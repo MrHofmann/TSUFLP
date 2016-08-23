@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <vector>
-#include <map>
 
 using namespace std;
 
@@ -13,22 +12,40 @@ typedef pair<unsigned, unsigned> key;
 class Solution
 {
 private:
-    vector<map<key, bool> > _x;
     vector<bool> _y;
     vector<bool> _z;
 
 public:
     Solution()
     {}
-    Solution(vector<map<key, bool> > x, vector<bool> y, vector<bool> z)
-        :_x(x), _y(y), _z(z)
+    Solution(vector<bool> y, vector<bool> z)
+        :_y(y), _z(z)
     {}
 
-    vector<map<key, bool> > GetX() const;
+/*
+    Solution(const Solution &s)
+        :_y(s.GetY()), _z(s.GetZ())
+    {
+
+    }
+
+    Solution &operator = (const Solution &s)
+    {
+        _y = s.GetY();
+        _z = s.GetZ();
+
+        return *this;
+    }
+
+    ~Solution()
+    {
+
+    }
+*/
+
     vector<bool> GetY() const;
     vector<bool> GetZ() const;
 
-    void SetX(const vector<map<key, bool> > x);
     void SetY(const vector<bool> y);
     void SetZ(const vector<bool> z);
 
