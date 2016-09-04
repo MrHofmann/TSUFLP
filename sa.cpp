@@ -1,4 +1,5 @@
 #include <limits>
+#include <random>
 #include "sa.h"
 
 void SA_Load(const string &s, InputData &D)
@@ -199,6 +200,25 @@ void SA_InitSolution(Solution &s,unsigned J, unsigned K)
     s = Solution(y, z);
 }
 
+void SA_SortMatrix(const vector<vector<double> > &c, const vector<vector<double> > &d,
+                         vector<multimap<double, key> > &vm)
+{
+    for(unsigned i=0; i<c.size(); i++)
+    {
+        multimap<double, key> m;
+        for(unsigned j=0; j<d.size(); j++)
+        {
+            for(unsigned k=0; k<d[j].size(); k++)
+            {
+                double s = c[i][j] + d[j][k];
+                m.insert(make_pair(s, key(j, k)));
+            }
+        }
+
+        vm.push_back(m);
+    }
+}
+
 
 Solution SA_GetRandomNeighbor1(const Solution &s)
 {
@@ -262,6 +282,7 @@ double SA_Evaluate(const InputData &data, const Solution &s)
     if(sum2 == 0)
         return numeric_limits<double>::max();
 
+
     double sum3 = 0;
     for(unsigned i=0; i<data._I; i++)
     {
@@ -282,8 +303,44 @@ double SA_Evaluate(const InputData &data, const Solution &s)
     return sum1+sum2+sum3;
 }
 
+void SA_Compute(InputData &data, double t, Solution &s, Solution &sp, Solution &global)
+{
+    double tmp = SA_Evaluate(data, sp);
+    if(tmp < SA_Evaluate(data, global))
+    {
+        global = sp;
+        cout << "New global: " << tmp << endl;
+        global.PrintSolution();
+    }
+    if(tmp < SA_Evaluate(data, s))
+        s = sp;
+    else
+    {
+        double delta_f = tmp - SA_Evaluate(data, s);
+        double p = SA_GetRandomUniform1(0.0, 1.0);
+
+        if(p > 1/exp(delta_f/t))
+            s = sp;
+    }
+}
+
+
 void SA_ApplyGeometricCooling(double &t)
 {
     t *= alpha;
 }
 
+double SA_GetRandomUniform1(double left, double right)
+{
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_real_distribution<double> distribution(left, right);
+
+    return distribution(generator);
+}
+
+double SA_GetRandomUniform2(double left, double right)
+{
+    double rnd = (double)rand()/RAND_MAX;
+    return rnd*(right - left) + left;
+}

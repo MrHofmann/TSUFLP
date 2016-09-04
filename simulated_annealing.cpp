@@ -6,29 +6,6 @@ unsigned temp = 5000;
 double alpha = 0.9;
 Solution global;
 
-
-void SA_Compute(InputData &data, double t, Solution &s, Solution &sp, Solution &global)
-{
-    double tmp = SA_Evaluate(data, sp);
-    if(tmp < SA_Evaluate(data, global))
-    {
-        global = sp;
-        cout << "New global: " << tmp << endl;
-        global.PrintSolution();
-    }
-    if(tmp < SA_Evaluate(data, s))
-        s = sp;
-    else
-    {
-        //BOLJE UNIFORMNA RASPODELA
-        double delta_f = tmp - SA_Evaluate(data, s);
-        double p = (double)rand()/RAND_MAX;
-
-        if(p > 1/exp(delta_f/t))
-            s = sp;
-    }
-}
-
 //------------------------------------------------------------------------------------//
 
 int main(int argc, char *argv[])
@@ -42,15 +19,16 @@ int main(int argc, char *argv[])
     srand(time(0));
 
     InputData data;
-
     SA_Load(argv[1], data);
-    SA_InitSolution(global, data._J, data._K);
 
     int t1 = clock();
     int t2, t3;
+    SA_InitSolution(global, data._J, data._K);
+    SA_SortMatrix(data._c, data._d, data._vm);
+
     unsigned iterations = data._J + data._K;
     double t = temp;
-    for(unsigned k=0; t>0.1 && k<20; k++)
+    for(unsigned k=0; t>0.1 && k<6; k++)
     {
         double tmp = SA_Evaluate(data, global);
         Solution s;
@@ -59,11 +37,18 @@ int main(int argc, char *argv[])
         for(unsigned i=0; i<iterations*10; i++)
         {
             Solution sp;
+            double rnd = SA_GetRandomUniform1(0.0, 1.0);
 
-            sp = SA_GetRandomNeighbor1(s);
-            SA_Compute(data, t, s, sp, global);
+            if(rnd < 0.75)
+                sp = SA_GetRandomNeighbor1(s);
+            else
+            {
+                sp = SA_GetRandomNeighbor1(s);
+                SA_Compute(data, t, s, sp, global);
 
-            sp = SA_GetRandomNeighbor2(s);
+                sp = SA_GetRandomNeighbor2(s);
+            }
+
             SA_Compute(data, t, s, sp, global);
         }
 
