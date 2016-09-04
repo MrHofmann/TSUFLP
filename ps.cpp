@@ -192,17 +192,12 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned 
 
         vector<double> v_y;
         for(unsigned j=0; j<J; j++)
-        {
-            double r = (double)rand()/RAND_MAX;
-            v_y.push_back(r*2*vmax - vmax);
-        }
+            v_y.push_back(PS_GetRandomUniform1(-vmax, vmax));
 
         vector<double> v_z;
         for(unsigned k=0; k<K; k++)
-        {
-            double r = (double)rand()/RAND_MAX;
-            v_z.push_back(r*2*vmax - vmax);
-        }
+            v_z.push_back(PS_GetRandomUniform1(-vmax, vmax));
+
 
         Particle particle(p, Solution(y, z), v_y, v_z);
         swarm.push_back(particle);
@@ -215,19 +210,38 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned 
     }
 }
 
+void PS_SortMatrix(const vector<vector<double> > &c, const vector<vector<double> > &d,
+                         vector<multimap<double, key> > &vm)
+{
+    for(unsigned i=0; i<c.size(); i++)
+    {
+        multimap<double, key> m;
+        for(unsigned j=0; j<d.size(); j++)
+        {
+            for(unsigned k=0; k<d[j].size(); k++)
+            {
+                double s = c[i][j] + d[j][k];
+                m.insert(make_pair(s, key(j, k)));
+            }
+        }
+
+        vm.push_back(m);
+    }
+}
+
 double PS_Evaluate(const InputData &data, const Solution &s)
 {
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
 
-    int sum1 = 0;
+    double sum1 = 0;
     for(unsigned j=0; j<data._J; j++)
         sum1 += data._f[j]*y[j];
 
     if(sum1 == 0)
         return numeric_limits<double>::max();
 
-    int sum2 = 0;
+    double sum2 = 0;
     for(unsigned k=0; k<data._K; k++)
         sum2 += data._g[k]*z[k];
 
@@ -236,20 +250,18 @@ double PS_Evaluate(const InputData &data, const Solution &s)
 
 
     double sum3 = 0;
-    for(unsigned i=0; i<data._I; i++)
+    for(unsigned i=0; i<data._vm.size(); i++)
     {
-        double tmp1 = numeric_limits<double>::max();
+        key k;
+        for(multimap<double, key>::const_iterator it=data._vm[i].begin();
+            it!=data._vm[i].end(); it++)
+        {
+            k = it->second;
+            if(y[k.first] && z[k.second])
+                break;
+        }
 
-        for(unsigned j=0; j<y.size(); j++)
-            for(unsigned k=0; k<z.size(); k++)
-                if(y[j] && z[k])
-                {
-                    double tmp2 = data._D[i]*(data._c[i][j] + data._d[j][k]);
-                    if(tmp2 < tmp1)
-                        tmp1 = tmp2;
-                }
-
-        sum3 += tmp1;
+        sum3 += data._D[i]*(data._c[i][k.first] + data._d[k.first][k.second]);
     }
 
     return sum1+sum2+sum3;
@@ -257,7 +269,6 @@ double PS_Evaluate(const InputData &data, const Solution &s)
 
 void PS_Compute(const InputData &data, Particle &p)
 {
-//    Solution s = p.GetCurrentPosition();
     Solution s(p.GetCurrentPosition().GetY(),p.GetCurrentPosition().GetZ());
     unsigned h = p.GetID()/hsize;
 
@@ -288,4 +299,19 @@ void PS_Debug(const Particle &p)
         cerr << "Y prazan" << endl;
     else if(z.empty())
         cerr << "Z prazan" << endl;
+}
+
+double PS_GetRandomUniform1(double left, double right)
+{
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_real_distribution<double> distribution(left, right);
+
+    return distribution(generator);
+}
+
+double PS_GetRandomUniform2(double left, double right)
+{
+    double rnd = (double)rand()/RAND_MAX;
+    return rnd*(right - left) + left;
 }

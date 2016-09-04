@@ -19,6 +19,7 @@ public:
 
     vector<vector<double > > _c;
     vector<vector<double > > _d;
+    vector<multimap<double, key> > _vm;
 
     InputData(){}
     InputData(unsigned I, unsigned J, unsigned K,
@@ -34,7 +35,16 @@ void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v,
 
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned K);
 
+void PS_SortMatrix(const vector<vector<double> > &c, const vector<vector<double> > &d,
+                    vector<multimap<double, key> > &vm);
+
+double PS_Evaluate(const InputData &data, const Solution &s);
+
 void PS_Compute(const InputData &data, Particle &p);
+
+double PS_GetRandomUniform1(double left, double right);
+
+double PS_GetRandomUniform2(double left, double right);
 
 void PS_Debug(int n);
 

@@ -5,8 +5,8 @@
 
 double vmax = 8.2;
 double omega = 0.99;
-double fi_p = 6.0;
-double fi_g = 0.5;
+double fi_p = 3.0;
+double fi_g = 0.2;
 
 unsigned parts = 20;
 unsigned hsize = 20;
@@ -28,37 +28,32 @@ int main(int argc, char **argv)
 
     InputData data;
     PS_Load(argv[1], data);
-
-    vector<Particle> swarm;
-    PS_InitParticles(swarm, parts, data._J, data._K);
-
+    PS_SortMatrix(data._c, data._d, data._vm);
 
     int t1 = clock();
     int t2, t3;
+    vector<Particle> swarm;
+    PS_InitParticles(swarm, parts, data._J, data._K);
+
     unsigned q = 0;
-    for(unsigned i=0; q<500; i++)
+    for(unsigned i=0; q<100; i++)
     {
         vector<double> v = gvalues;
-
-        if(i%1000 == 0)
-        {
-            cout << "ITERATION " << i << ":" << endl;
-            cout << "------------------------------------------------------------" << endl;
-        }
 
         for(unsigned j=0; j<swarm.size(); j++)
         {
             swarm[j].UpdateVelocity();
 
-            if(i%3 == 0)
-            {
-                swarm[j].UpdatePosition2();
-//                swarm[j].UpdateVelocity2();
-            }
-            else
+            double rnd = PS_GetRandomUniform1(0.0, 1.0);
+            if(rnd < 0.8)
             {
                 swarm[j].UpdatePosition1();
 //                swarm[j].UpdateVelocity1();
+            }
+            else
+            {
+                swarm[j].UpdatePosition2();
+//                swarm[j].UpdateVelocity2();
             }
 
             PS_Compute(data, swarm[j]);
