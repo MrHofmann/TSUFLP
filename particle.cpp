@@ -60,6 +60,7 @@ void Particle::PrintVelocity() const
     for(unsigned j=0; j<_y_velocity.size(); j++)
         cout << _y_velocity[j] << " ";
     cout << endl;
+
     for(unsigned k=0; k<_z_velocity.size(); k++)
         cout << _z_velocity[k] << " ";
     cout << endl;
@@ -71,10 +72,8 @@ void Particle::UpdateVelocity()
 {
     for(unsigned j=0; j<_y_velocity.size(); j++)
     {
-        double fp = (double)rand()/RAND_MAX;
-        double fg = (double)rand()/RAND_MAX;
-        fp = fp*(2.5 - 2.0) + 2.0;
-        fg = fg*(2.5 - 2.0) + 2.0;
+        double fp = GetRandomUniform1(2.0, 2.5);
+        double fg = GetRandomUniform1(2.0, 2.5);
 
         vector<bool> yc = _current.GetY();
         vector<bool> yl = _localp.GetY();
@@ -93,10 +92,8 @@ void Particle::UpdateVelocity()
 
     for(unsigned k=0; k<_z_velocity.size(); k++)
     {
-        double fp = (double)rand()/RAND_MAX;
-        double fg = (double)rand()/RAND_MAX;
-        fp = fp*(2.5 - 2.0) + 2.0;
-        fg = fg*(2.5 - 2.0) + 2.0;
+        double fp = GetRandomUniform1(2.0, 2.5);
+        double fg = GetRandomUniform1(2.0, 2.5);
 
         vector<bool> zc = _current.GetZ();
         vector<bool> zl = _localp.GetZ();
@@ -117,10 +114,8 @@ void Particle::UpdateVelocity1()
 {
     for(unsigned j=0; j<_y_velocity.size(); j++)
     {
-        double fp = (double)rand()/RAND_MAX;
-        double fg = (double)rand()/RAND_MAX;
-        fp = fp*(2.5 - 2.0) + 2.0;
-        fg = fg*(2.5 - 2.0) + 2.0;
+        double fp = GetRandomUniform1(2.0, 2.5);
+        double fg = GetRandomUniform1(2.0, 2.5);
 
         vector<bool> yc = _current.GetY();
         vector<bool> yl = _localp.GetY();
@@ -141,10 +136,8 @@ void Particle::UpdateVelocity2()
 {
     for(unsigned k=0; k<_z_velocity.size(); k++)
     {
-        double fp = (double)rand()/RAND_MAX;
-        double fg = (double)rand()/RAND_MAX;
-        fp = fp*(2.5 - 2.0) + 2.0;
-        fg = fg*(2.5 - 2.0) + 2.0;
+        double fp = GetRandomUniform1(2.0, 2.5);
+        double fg = GetRandomUniform1(2.0, 2.5);
 
         vector<bool> zc = _current.GetZ();
         vector<bool> zl = _localp.GetZ();
@@ -165,7 +158,7 @@ void Particle::UpdateVelocity2()
 void Particle::UpdatePosition1()
 {
     vector<bool> y = _current.GetY();
-    double u = (double)rand()/RAND_MAX;
+    double u = GetRandomUniform1(0.0, 1.0);
     for(unsigned j=0; j<y.size(); j++)
     {
         double sig = 1/(1+exp(-_y_velocity[j]));
@@ -180,7 +173,7 @@ void Particle::UpdatePosition1()
 
 void Particle::UpdatePosition2()
 {
-    double u = (double)rand()/RAND_MAX;
+    double u = GetRandomUniform1(0.0, 1.0);
 
     vector<bool> z = _current.GetZ();
     for(unsigned k=0; k<z.size(); k++)

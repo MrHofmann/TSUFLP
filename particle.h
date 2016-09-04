@@ -4,6 +4,7 @@
 #include <limits>
 #include <set>
 #include <cmath>
+#include <random>
 #include "solution.h"
 
 extern double vmax;
@@ -29,6 +30,20 @@ private:
 
     vector<double>              _y_velocity;
     vector<double>              _z_velocity;
+
+    double GetRandomUniform1(double left, double right)
+    {
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        std::uniform_real_distribution<double> distribution(left, right);
+
+        return distribution(generator);
+    }
+    double GetRandomUniform2(double left, double right)
+    {
+        double rnd = (double)rand()/RAND_MAX;
+        return rnd*(right - left) + left;
+    }
 
 public:
     Particle()
@@ -68,16 +83,13 @@ public:
     double GetLocal() const;
     Solution GetCurrentPosition() const;
     Solution GetLocalBest() const;
-    Solution GetGlobalBest() const;
 
     void SetLocal(double local);
     void SetCurrentPosition(const Solution &s);
-    void SetGlobalBest(const Solution &s);
     void SetLocalBest(const Solution &s);
 
     void PrintParticle() const;
     void PrintCurrentPosition() const;
-    void PrintGlobalBest() const;
     void PrintVelocity() const;
 
     void UpdateVelocity();

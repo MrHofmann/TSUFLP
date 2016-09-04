@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iterator>
+//#include <algorithm>
 #include <ctime>
 #include "particle.h"
 
@@ -34,6 +35,7 @@ public:
 
     vector<vector<double > > _c;
     vector<vector<double > > _d;
+    vector<multimap<double, key> > _vm;
 
     InputData(){}
     InputData(unsigned I, unsigned J, unsigned K,
@@ -48,29 +50,32 @@ void H_Load(const string &s, InputData &D);
 
 void H_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2, int t3);
 
-bool H_ApplySA1(const InputData &data, Particle &p, double temp, double alpha);
+void H_SortMatrix(const vector<vector<double> > &c, const vector<vector<double> > &d,
+                    vector<multimap<double, key> > &vm);
 
-bool H_ApplySA2(const InputData &data, Solution &global, double &gvalue, double temp, double alpha);
+bool H_ApplySA(const InputData &data, Solution &global, double &gvalue, double temp, double alpha);
 
-double H_Evaluate(const InputData &data, const Solution &s);
+double H_Evaluate1(const InputData &data, const Solution &s);
+
+double H_Evaluate2(const InputData &data, const Solution &s);
 
 double H_Compute(const InputData &data, Particle &p);
+
+double H_GetRandomUniform1(double left, double right);
+
+double H_GetRandomUniform2(double left, double right);
 
 
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned K);
 
-void PS_Compute(const InputData &data, Particle &p);
-
 void PS_Debug(int n);
 
+void PS_Debug(const Particle &p);
 
-Solution SA_GetRandomNeighbor0(const Solution &s);
 
 Solution SA_GetRandomNeighbor1(const Solution &s);
 
 Solution SA_GetRandomNeighbor2(const Solution &s);
-
-double SA_Evaluate(const InputData &data, const Solution &s);
 
 void SA_ApplyGeometricCooling(double &t, double alpha);
 
@@ -245,7 +250,26 @@ void H_Save(const string s, const vector<Solution> &g, const vector<double> &v, 
 
 }
 
-double H_Evaluate(const InputData &data, const Solution &s)
+void H_SortMatrix(const vector<vector<double> > &c, const vector<vector<double> > &d,
+                         vector<multimap<double, key> > &vm)
+{
+    for(unsigned i=0; i<c.size(); i++)
+    {
+        multimap<double, key> m;
+        for(unsigned j=0; j<d.size(); j++)
+        {
+            for(unsigned k=0; k<d[j].size(); k++)
+            {
+                double s = c[i][j] + d[j][k];
+                m.insert(make_pair(s, key(j, k)));
+            }
+        }
+
+        vm.push_back(m);
+    }
+}
+
+double H_Evaluate1(const InputData &data, const Solution &s)
 {
     vector<bool> y = s.GetY();
     vector<bool> z = s.GetZ();
@@ -285,11 +309,49 @@ double H_Evaluate(const InputData &data, const Solution &s)
     return sum1+sum2+sum3;
 }
 
+double H_Evaluate2(const InputData &data, const Solution &s)
+{
+    vector<bool> y = s.GetY();
+    vector<bool> z = s.GetZ();
+
+    double sum1 = 0;
+    for(unsigned j=0; j<data._J; j++)
+        sum1 += data._f[j]*y[j];
+
+    if(sum1 == 0)
+        return numeric_limits<double>::max();
+
+    double sum2 = 0;
+    for(unsigned k=0; k<data._K; k++)
+        sum2 += data._g[k]*z[k];
+
+    if(sum2 == 0)
+        return numeric_limits<double>::max();
+
+
+    double sum3 = 0;
+    for(unsigned i=0; i<data._vm.size(); i++)
+    {
+        key k;
+        for(multimap<double, key>::const_iterator it=data._vm[i].begin();
+            it!=data._vm[i].end(); it++)
+        {
+            k = it->second;
+            if(y[k.first] && z[k.second])
+                break;
+        }
+
+        sum3 += data._D[i]*(data._c[i][k.first] + data._d[k.first][k.second]);
+    }
+
+    return sum1+sum2+sum3;
+}
+
 double H_Compute(const InputData &data, Particle &p)
 {
     Solution s = p.GetCurrentPosition();
 
-    double tmp = H_Evaluate(data, s);
+    double tmp = H_Evaluate2(data, s);
     if(tmp < p.GetLocal())
     {
         p.SetLocal(tmp);
@@ -299,79 +361,37 @@ double H_Compute(const InputData &data, Particle &p)
     return tmp;
 }
 
-bool H_ApplySA1(const InputData &data, Particle &p, double temp, double alpha)
-{
-    bool ret = false;
-
-    Solution s = p.GetCurrentPosition();
-    while(temp > 20000)
-    {
-        for(unsigned it=0; it<5; it++)
-        {
-            Solution sp;
-            if(it%3 == 0)
-                sp = SA_GetRandomNeighbor2(s);
-            else
-                sp = SA_GetRandomNeighbor1(s);
-
-            double sp_value = H_Evaluate(data, sp);
-
-            if(sp_value < H_Evaluate(data, p.GetCurrentPosition()))
-            {
-                p.SetCurrentPosition(sp);
-                PS_Compute(data, p);
-                p.UpdateVelocity();
-                ret = true;
-            }
-            if(sp_value < H_Evaluate(data, s))
-                s = sp;
-            else
-            {
-                //BOLJE UNIFORMNA RASPODELA
-                double delta_f = sp_value - H_Evaluate(data, s);
-                double p = (double)rand()/RAND_MAX;
-
-                if(p > 1/exp(delta_f/temp))
-                    s = sp;
-            }
-        }
-
-        SA_ApplyGeometricCooling(temp, alpha);
-    }
-
-    return ret;
-}
-
-bool H_ApplySA2(const InputData &data, Solution &global, double &gvalue, double temp, double alpha)
+bool H_ApplySA(const InputData &data, Solution &global, double &gvalue, double temp, double alpha)
 {
     bool ret = false;
 
     Solution s = global;
     while(temp > 10000)
     {
-        for(unsigned it=1; it<6; it++)
+        for(unsigned it=0; it<30; it++)
         {
             Solution sp;
-            if(it%3 == 0)
-                sp = SA_GetRandomNeighbor2(s);
-            else
+            double rnd = H_GetRandomUniform1(0.0, 1.0);
+
+            if(rnd < 0.75)
                 sp = SA_GetRandomNeighbor1(s);
+            else
+                sp = SA_GetRandomNeighbor2(s);
 
-            double sp_value = H_Evaluate(data, sp);
+            double sp_value = H_Evaluate2(data, sp);
 
-            if(sp_value < H_Evaluate(data, global))
+            if(sp_value < H_Evaluate2(data, global))
             {
                 global = sp;
                 gvalue = sp_value;
                 ret = true;
             }
-            if(sp_value < H_Evaluate(data, s))
+            if(sp_value < H_Evaluate2(data, s))
                 s = sp;
             else
             {
-                //BOLJE UNIFORMNA RASPODELA
-                double delta_f = sp_value - H_Evaluate(data, s);
-                double p = (double)rand()/RAND_MAX;
+                double delta_f = sp_value - H_Evaluate2(data, s);
+                double p = H_GetRandomUniform1(0.0, 1.0);
 
                 if(p > 1/exp(delta_f/temp))
                     s = sp;
@@ -383,6 +403,22 @@ bool H_ApplySA2(const InputData &data, Solution &global, double &gvalue, double 
 
     return ret;
 }
+
+double H_GetRandomUniform1(double left, double right)
+{
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_real_distribution<double> distribution(left, right);
+
+    return distribution(generator);
+}
+
+double H_GetRandomUniform2(double left, double right)
+{
+    double rnd = (double)rand()/RAND_MAX;
+    return rnd*(right - left) + left;
+}
+
 
 //------------------PARTICLE-SWARM-------------------------------------------------------------
 
@@ -409,20 +445,14 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned 
         }
 
 
-
         vector<double> v_y;
         for(unsigned j=0; j<J; j++)
-        {
-            double r = (double)rand()/RAND_MAX;
-            v_y.push_back(r*2*vmax - vmax);
-        }
+            v_y.push_back(H_GetRandomUniform1(-vmax, vmax));
 
         vector<double> v_z;
         for(unsigned k=0; k<K; k++)
-        {
-            double r = (double)rand()/RAND_MAX;
-            v_z.push_back(r*2*vmax - vmax);
-        }
+            v_z.push_back(H_GetRandomUniform1(-vmax, vmax));
+
 
         Particle particle(p, Solution(y, z), v_y, v_z);
         swarm.push_back(particle);
@@ -432,65 +462,6 @@ void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned 
             globals.push_back(Solution(y, z));
             gvalues.push_back(numeric_limits<double>::max());
         }
-    }
-}
-
-double PS_Evaluate(const InputData &data, const Solution &s)
-{
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    int sum1 = 0;
-    for(unsigned j=0; j<data._J; j++)
-        sum1 += data._f[j]*y[j];
-
-    if(sum1 == 0)
-        return numeric_limits<double>::max();
-
-    int sum2 = 0;
-    for(unsigned k=0; k<data._K; k++)
-        sum2 += data._g[k]*z[k];
-
-    if(sum2 == 0)
-        return numeric_limits<double>::max();
-
-
-    double sum3 = 0;
-    for(unsigned i=0; i<data._I; i++)
-    {
-        double tmp1 = numeric_limits<double>::max();
-
-        for(unsigned j=0; j<y.size(); j++)
-            for(unsigned k=0; k<z.size(); k++)
-                if(y[j] && z[k])
-                {
-                    double tmp2 = data._D[i]*(data._c[i][j] + data._d[j][k]);
-                    if(tmp2 < tmp1)
-                        tmp1 = tmp2;
-                }
-
-        sum3 += tmp1;
-    }
-
-    return sum1+sum2+sum3;
-}
-
-void PS_Compute(const InputData &data, Particle &p)
-{
-//    Solution s = p.GetCurrentPosition();
-    Solution s(p.GetCurrentPosition().GetY(),p.GetCurrentPosition().GetZ());
-    unsigned h = p.GetID()/hsize;
-
-    double tmp = PS_Evaluate(data, s);
-    if(tmp < p.GetLocal())
-    {
-        p.SetLocal(tmp);
-        p.SetLocalBest(s);
-    }
-    if(tmp < gvalues[h])
-    {
-        globals[h] = s;
-        gvalues[h] = tmp;
     }
 }
 
@@ -558,52 +529,10 @@ Solution SA_GetRandomNeighbor2(const Solution &s)
     return Solution(y,z);
 }
 
-
-double SA_Evaluate(const InputData &data, const Solution &s)
-{
-    vector<bool> y = s.GetY();
-    vector<bool> z = s.GetZ();
-
-    int sum1 = 0;
-    for(unsigned j=0; j<data._J; j++)
-        sum1 += data._f[j]*y[j];
-
-    if(sum1 == 0)
-        return numeric_limits<double>::max();
-
-    int sum2 = 0;
-    for(unsigned k=0; k<data._K; k++)
-        sum2 += data._g[k]*z[k];
-
-    if(sum2 == 0)
-        return numeric_limits<double>::max();
-
-    double sum3 = 0;
-    for(unsigned i=0; i<data._I; i++)
-    {
-        double tmp1 = numeric_limits<double>::max();
-
-        for(unsigned j=0; j<y.size(); j++)
-            for(unsigned k=0; k<z.size(); k++)
-                if(y[j] && z[k])
-                {
-                    double tmp2 = data._D[i]*(data._c[i][j] + data._d[j][k]);
-                    if(tmp2 < tmp1)
-                        tmp1 = tmp2;
-                }
-
-        sum3 += tmp1;
-    }
-
-    return sum1+sum2+sum3;
-}
-
-
 void SA_ApplyGeometricCooling(double &t, double alpha)
 {
     t *= alpha;
 }
-
 
 
 //----------------------------------------------------------------------------------------------
@@ -613,7 +542,7 @@ int main(int argc, char *argv[])
 
     if(argc < 2)
     {
-        cerr << "Enter instance path!" << endl;
+        cerr << "Enter instance code!" << endl;
         exit(EXIT_FAILURE);
     }
 
@@ -623,9 +552,14 @@ int main(int argc, char *argv[])
     int t1 = clock();
     int t2, t3;
     vector<Particle> swarm;
-    PS_InitParticles(swarm, parts, data._J, data._K);
 
-    for(unsigned i=0, q=0; q<25; i++, q++)
+    PS_InitParticles(swarm, parts, data._J, data._K);
+    H_SortMatrix(data._c, data._d, data._vm);
+
+
+    //MOZDA BOLJE OVAKO
+    //q < argv[2]
+    for(unsigned i=0, q=0; q<30; i++, q++)
     {
         vector<double> v(hoods, numeric_limits<double>::max());
         vector<Solution> g(hoods, Solution());
@@ -640,15 +574,16 @@ int main(int argc, char *argv[])
         {
             swarm[j].UpdateVelocity();
 
-            if(i%3 == 0)
-            {
-                swarm[j].UpdatePosition2();
-//                swarm[j].UpdateVelocity2();
-            }
-            else
+            double rnd = H_GetRandomUniform1(0.0, 1.0);
+            if(rnd < 0.8)
             {
                 swarm[j].UpdatePosition1();
 //                swarm[j].UpdateVelocity1();
+            }
+            else
+            {
+                swarm[j].UpdatePosition2();
+//                swarm[j].UpdateVelocity2();
             }
 
             double tmp = H_Compute(data, swarm[j]);
@@ -671,7 +606,7 @@ int main(int argc, char *argv[])
                 b = true;
                 t3 = clock();
             }
-            if(H_ApplySA2(data, g[l], v[l], 50000, 0.9))
+            if(H_ApplySA(data, g[l], v[l], 50000, 0.9))
             {
                 if(v[l] < gvalues[l])
                 {
