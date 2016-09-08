@@ -31,7 +31,7 @@ public:
 
 void PS_Load(const string &s, InputData &data);
 
-void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2);
+void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2, int t3);
 
 void PS_InitParticles(vector<Particle> &swarm, unsigned n, unsigned J, unsigned K);
 

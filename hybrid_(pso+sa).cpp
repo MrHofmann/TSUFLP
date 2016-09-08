@@ -2,7 +2,6 @@
 #include <fstream>
 #include <sstream>
 #include <iterator>
-//#include <algorithm>
 #include <ctime>
 #include "particle.h"
 
@@ -194,6 +193,7 @@ void H_Load(const string &s, InputData &D)
         D._d.push_back(v);
     }
 
+    file.close();
 }
 
 void H_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2, int t3)
@@ -550,7 +550,10 @@ int main(int argc, char *argv[])
     H_Load(argv[1], data);
 
     int t1 = clock();
-    int t2, t3;
+    int t2;
+    int t3 = t1;
+//    int t4;
+//    int tmax = numeric_limits<int>::min();
     vector<Particle> swarm;
 
     PS_InitParticles(swarm, parts, data._J, data._K);
@@ -559,16 +562,10 @@ int main(int argc, char *argv[])
 
     //MOZDA BOLJE OVAKO
     //q < argv[2]
-    for(unsigned i=0, q=0; q<30; i++, q++)
+    for(unsigned i=0, q=0; q<25; i++, q++)
     {
         vector<double> v(hoods, numeric_limits<double>::max());
         vector<Solution> g(hoods, Solution());
-
-        if(i%100 == 0)
-        {
-            cout << "ITERATION " << i << ":" << endl;
-            cout << "------------------------------------------------------------" << endl;
-        }
 
         for(unsigned j=0; j<swarm.size(); j++)
         {
@@ -594,7 +591,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        bool b;
+        bool b = false;
         for(unsigned l=0; l<v.size(); l++)
         {
             b = false;
@@ -603,8 +600,10 @@ int main(int argc, char *argv[])
                 cout << "New global best " << l << ": " << v[l] << "(PSO)" << endl;
                 g[l].PrintSolution();
 
-                b = true;
+//                t4 = t3;
                 t3 = clock();
+                b = true;
+
             }
             if(H_ApplySA(data, g[l], v[l], 50000, 0.9))
             {
@@ -613,8 +612,9 @@ int main(int argc, char *argv[])
                     cout << "New global best " << l << ": " << v[l] << "(SA)" << endl;
                     g[l].PrintSolution();
 
-                    b = true;
+//                    t4 = t3;
                     t3 = clock();
+                    b = true;
                 }
             }
             if(b)
@@ -622,6 +622,9 @@ int main(int argc, char *argv[])
                 globals[l] = g[l];
                 gvalues[l] = v[l];
                 q = 0;
+
+//                if(t3 - t4 > tmax)
+//                    tmax = t3 - t4;
             }
         }
         if(b)
@@ -632,7 +635,8 @@ int main(int argc, char *argv[])
 
     t2 = clock();
     H_Save(argv[1], globals, gvalues, t1, t2, t3);
-    cout << (double)(t3-t1)/CLOCKS_PER_SEC << endl;
+//    cout << (double)(t3-t1)/CLOCKS_PER_SEC << endl;
+//    cout << (double)(tmax)/CLOCKS_PER_SEC << endl;
 
     return 0;
 }

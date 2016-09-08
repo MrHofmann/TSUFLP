@@ -8,8 +8,8 @@ double omega = 0.99;
 double fi_p = 3.0;
 double fi_g = 0.2;
 
-unsigned parts = 20;
-unsigned hsize = 20;
+unsigned parts = 40;
+unsigned hsize = 40;
 unsigned hoods = ceil(parts/hsize);
 
 vector<Solution> globals;
@@ -31,12 +31,15 @@ int main(int argc, char **argv)
     PS_SortMatrix(data._c, data._d, data._vm);
 
     int t1 = clock();
-    int t2, t3;
+    int t2;
+    int t3 = t1;
+//    int t4;
+//    int tmax = numeric_limits<int>::min();
     vector<Particle> swarm;
     PS_InitParticles(swarm, parts, data._J, data._K);
 
     unsigned q = 0;
-    for(unsigned i=0; q<100; i++)
+    for(unsigned i=0; q<200; i++)
     {
         vector<double> v = gvalues;
 
@@ -64,30 +67,26 @@ int main(int argc, char **argv)
             if(gvalues[l] < v[l])
             {
                 cout << "New global best " << l << ": " << gvalues[l] << endl;
-                vector<bool> y = globals[l].GetY();
-                for(unsigned j=0; j<y.size(); j++)
-                    cout << y[j] << " ";
-                cout << endl;
+                globals[l].PrintSolution();
 
-                vector<bool> z = globals[l].GetZ();
-                for(unsigned k=0; k<z.size(); k++)
-                    cout << z[k] << " ";
-                cout << endl;
-
+//                t4 = t3;
+                t3 = clock();
                 b = true;
                 q = 0;
-                t3 = clock();
             }
         if(b)
         {
             cout << "-----------------------------------------------------" << endl;
+//            if(t3-t4 > tmax)
+//                tmax = t3-t4;
         }
         q++;
     }
 
     t2 = clock();
-    PS_Save(argv[1], globals, gvalues, t1, t2);
-    cout << (double)(t3-t1)/CLOCKS_PER_SEC;
+    PS_Save(argv[1], globals, gvalues, t1, t2, t3);
+//    cout << (double)(t3-t1)/CLOCKS_PER_SEC << endl;
+//    cout << (double)tmax/CLOCKS_PER_SEC << endl;
 
     return 0;
 }

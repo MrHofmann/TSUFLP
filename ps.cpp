@@ -112,9 +112,10 @@ void PS_Load(const string &s, InputData &D)
         D._d.push_back(v);
     }
 
+    file.close();
 }
 
-void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2)
+void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v, int t1, int t2, int t3)
 {
     string str;
     str = "results/output_" + s + ".txt";
@@ -163,7 +164,8 @@ void PS_Save(const string s, const vector<Solution> &g, const vector<double> &v,
          << "Plants:\t\t" << plants << endl
          << "Depots:\t\t" << depots << endl
          << "Function Value:\t" << gvalues[l] << endl
-         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl << endl << endl;
+         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl
+         << "Last Update:\t" << double(t3-t1)/CLOCKS_PER_SEC << endl << endl << endl;
 
 }
 
@@ -253,15 +255,20 @@ double PS_Evaluate(const InputData &data, const Solution &s)
     for(unsigned i=0; i<data._vm.size(); i++)
     {
         key k;
+        double s = 0;
         for(multimap<double, key>::const_iterator it=data._vm[i].begin();
             it!=data._vm[i].end(); it++)
         {
             k = it->second;
             if(y[k.first] && z[k.second])
+            {
+                s = it->first;
                 break;
+            }
         }
 
-        sum3 += data._D[i]*(data._c[i][k.first] + data._d[k.first][k.second]);
+        sum3 += data._D[i]*s;
+        //sum3 += data._D[i]*(data._c[i][k.first] + data._d[k.first][k.second]);
     }
 
     return sum1+sum2+sum3;
