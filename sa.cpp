@@ -114,9 +114,11 @@ void SA_Load(const string &s, InputData &D)
         D._d.push_back(v);
     }
 
+    file.close();
+
 }
 
-void SA_Save(const string s, Solution &g, double &v, int t1, int t2)
+void SA_Save(const string s, Solution &g, double &v, int t1, int t2, int t3)
 {
     string str;
     str = "results/output_" + s + ".txt";
@@ -156,8 +158,10 @@ void SA_Save(const string s, Solution &g, double &v, int t1, int t2)
          << "Plants:\t\t" << plants << endl
          << "Depots:\t\t" << depots << endl
          << "Function Value:\t" << v << endl
-         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl << endl << endl;
+         << "Time:\t\t" << double(t2-t1)/CLOCKS_PER_SEC << endl
+         << "Last Update:\t" << double(t3-t1)/CLOCKS_PER_SEC << endl << endl << endl;
 
+    file.close();
 }
 
 void SA_InitSolution(Solution &s,unsigned J, unsigned K)

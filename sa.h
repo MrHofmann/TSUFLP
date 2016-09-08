@@ -38,7 +38,7 @@ public:
 
 void SA_Load(const string &s, InputData &D);
 
-void SA_Save(const string s, Solution &g, double &v, int t1, int t2);
+void SA_Save(const string s, Solution &g, double &v, int t1, int t2, int t3);
 
 void SA_InitSolution(Solution &s, unsigned J, unsigned K);
 
