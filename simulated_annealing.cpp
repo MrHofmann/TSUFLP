@@ -31,13 +31,13 @@ int main(int argc, char *argv[])
 
     unsigned iterations = data._J + data._K;
     double t = temp;
-    for(unsigned k=0; t>0.1 && k<30; k++)
+    for(unsigned k=0; t>0.01 && k<100; k++)
     {
         double tmp = SA_Evaluate(data, global);
         Solution s;
         SA_InitSolution(s, data._J, data._K);
 
-        for(unsigned i=0; i<iterations; i++)
+        for(unsigned i=0; i<iterations*10; i++)
         {
             Solution sp;
             double rnd = SA_GetRandomUniform1(0.0, 1.0);
@@ -51,8 +51,6 @@ int main(int argc, char *argv[])
 
                 sp = SA_GetRandomNeighbor2(s);
             }
-
-            SA_Compute(data, t, s, sp, global);
         }
 
         SA_ApplyGeometricCooling(t);
