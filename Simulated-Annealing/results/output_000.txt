@@ -1,0 +1,9 @@
+INSTANCE 000:	26-9-2016 16:4:7
+
+Plants:		1
+Depots:		5
+Function Value:	14286.1
+Time:		1.46589
+Last Update:	0.213547
+
+
